@@ -14,7 +14,7 @@ import traceback
 
 from . import ini, mail, testcase, testmode, utility
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 module_name = "eztest"
 version = "{} v{}".format(module_name, __version__)
 __all__ = ["ini", "stringbuilder", "testcase", "utility"]
