@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="eztest",
-    version="1.0.1",
+    version="1.0.2",
     description="eztest package is used for a load test",
     long_description=open('README.rst').read(),
     author='lgt',

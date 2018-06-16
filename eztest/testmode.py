@@ -22,7 +22,6 @@ ConcurrencyTest Test:
 
 Frequent Test:
     a. Start <thread_count> threads per <interval_seconds> seconds, and run self.cases one by one in each thread.
-    b. Repeat #a with <repeat_times> times.
     Note: only have <max_thread_count> running if it is set.
 """
 import copy
@@ -51,7 +50,7 @@ class NormalTest(object):
     """
     __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
                  'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'completed_case_count', 'started_case_count']
+                 'is_cancelled', 'round_finished', 'round_started']
 
     def __init__(self):
         self.cases = []
@@ -70,8 +69,8 @@ class NormalTest(object):
         self._f = None
         self._report_path = None
         self.is_cancelled = False
-        self.completed_case_count = 0
-        self.started_case_count = 0
+        self.round_finished = 0
+        self.round_started = 0
 
     def process_finished(self):
         """Process after testing is finished: close report file, send mail, invoke teardown function."""
@@ -128,7 +127,6 @@ class NormalTest(object):
             if self._f:
                 self._f.write(report_msg)
                 self._f.flush()
-            self.completed_case_count += 1
 
     def run_cases(self, cases):
         """Run cases in sequence.
@@ -141,9 +139,8 @@ class NormalTest(object):
                 if hasattr(case, "on_finished"):
                     case.on_finished = self.case_finished
                 case.do_case()
-                if not hasattr(case, "on_finished"):
-                    with self._mutex:
-                        self.completed_case_count += 1
+        with self._mutex:
+            self.round_finished += 1
 
     def cancel(self):
         """Cancel testing."""
@@ -159,7 +156,7 @@ class NormalTest(object):
     def start_test(self):
         """Start testing."""
         print("Starting testing...")
-        self.started_case_count = len(self.cases)
+        self.round_started = len(self.cases)
         try:
             self.run_cases(self.cases)
         except Exception:
@@ -171,8 +168,8 @@ class NormalTest(object):
     def reset(self):
         """Reset: cancel existed testing, clean captured data."""
         self.is_cancelled = False
-        self.completed_case_count = 0
-        self.started_case_count = 0
+        self.round_finished = 0
+        self.round_started = 0
 
     def run(self):
         """Do all cases in self.cases. All cases should inherit from BaseCase."""
@@ -224,30 +221,28 @@ class ContinuousTest(NormalTest):
     """
     __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
                  'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'completed_case_count', 'started_case_count',
-                 'repeat_times', 'interval_seconds', 'current_repeat_times']
+                 'is_cancelled', 'round_finished', 'round_started',
+                 'repeat_times', 'interval_seconds', 'current_round']
 
     def __init__(self):
         super(ContinuousTest, self).__init__()
         self.repeat_times = 1
         self.interval_seconds = 0
-        self.current_repeat_times = 0
+        self.current_round = 0
         self.test_mode = CONTINUOUS
 
     def start_test(self):
         """Start Continuous testing."""
         try:
-            case_count = len(self.cases)
-            self.started_case_count = case_count
             for rp1 in range(self.repeat_times):
-                self.current_repeat_times = rp1
+                self.current_round = rp1
                 print("Starting (%d) round..." % rp1)
                 new_cases = []
                 for c in self.cases:
                     c2 = copy.deepcopy(c)
                     c2.repeat_index = rp1
                     new_cases.append(c2)
-                self.completed_case_count = 0
+                self.round_started += 1
                 self.run_cases(new_cases)
                 if self.interval_seconds > 0:
                     time.sleep(self.interval_seconds)
@@ -260,7 +255,7 @@ class ContinuousTest(NormalTest):
     def reset(self):
         """Reset: cancel existed testing, clean captured data."""
         super(ContinuousTest, self).reset()
-        self.current_repeat_times = 0
+        self.current_round = 0
 
 
 class SimultaneousTest(ContinuousTest):
@@ -274,8 +269,8 @@ class SimultaneousTest(ContinuousTest):
     """
     __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
                  'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'completed_case_count', 'started_case_count',
-                 'repeat_times', 'interval_seconds', 'current_repeat_times',
+                 'is_cancelled', 'round_finished', 'round_started',
+                 'repeat_times', 'interval_seconds', 'current_round',
                  'thread_count', '_repeat_capture_timer', 'is_repeat_started']
 
     def __init__(self):
@@ -288,39 +283,36 @@ class SimultaneousTest(ContinuousTest):
     def repeat_capture_timer_method(self):
         """Timer callback method: start next round of Simultaneous testing."""
         run_required = False
-        if self.current_repeat_times >= self.repeat_times:
-            if self.completed_case_count >= self.started_case_count:
+        if self.current_round >= self.repeat_times:
+            if self.round_finished >= self.round_started:
                 self._repeat_capture_timer.cancel()
                 self.process_finished()
                 return
         elif self.is_repeat_started:
-            if self.completed_case_count >= self.started_case_count:
+            if self.round_finished >= self.round_started:
                 if self.interval_seconds > 0:
                     time.sleep(self.interval_seconds)
                 run_required = True
         else:
             run_required = True
         if run_required:
-            self.started_case_count = 0
-            self.completed_case_count = 0
-            print("Starting (%d) round..." % self.current_repeat_times)
+            print("Starting (%d) round..." % self.current_round)
             tds = []
             for i in range(self.thread_count):
                 new_cases = []
                 for c in self.cases:
                     c2 = copy.deepcopy(c)
                     c2.is_under_stress_test = True
-                    c2.repeat_index = self.current_repeat_times
+                    c2.repeat_index = self.current_round
                     new_cases.append(c2)
                 td = threading.Thread(target=self.run_cases, args=(new_cases,))
                 tds.append(td)
-            case_count = len(self.cases)
             for td in tds:
                 if self.is_cancelled:
                     return
-                self.started_case_count += case_count
+                self.round_started += 1
                 td.start()
-            self.current_repeat_times += 1
+            self.current_round += 1
             self.is_repeat_started = True
         self._repeat_capture_timer = threading.Timer(1, self.repeat_capture_timer_method)
         self._repeat_capture_timer.start()
@@ -348,7 +340,7 @@ class ConcurrencyTest(NormalTest):
     """
     __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
                  'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'completed_case_count', 'started_case_count',
+                 'is_cancelled', 'round_finished', 'round_started',
                  'thread_count', 'interval_seconds', '_mutex_count', '_count_capture_timer']
 
     def __init__(self):
@@ -362,7 +354,6 @@ class ConcurrencyTest(NormalTest):
     def _do_in_thread(self):
         """Continuously run cases in each thread."""
         rpi = 0
-        case_count = len(self.cases)
         while not self.is_cancelled:
             new_cases = []
             for c in self.cases:
@@ -372,14 +363,14 @@ class ConcurrencyTest(NormalTest):
                 new_cases.append(c2)
             rpi += 1
             with self._mutex_count:
-                self.started_case_count += case_count
+                self.round_started += 1
             self.run_cases(new_cases)
             if self.interval_seconds > 0:
                 time.sleep(self.interval_seconds)
 
     def _count_capture_timer_method(self):
         """Timer callback method: start next round of Concurrency testing."""
-        if self.completed_case_count >= self.started_case_count:
+        if self.round_finished >= self.round_started:
             self._count_capture_timer.cancel()
             self.process_finished()
         else:
@@ -400,10 +391,9 @@ class ConcurrencyTest(NormalTest):
         self._count_capture_timer.start()
 
 
-class FrequentTest(SimultaneousTest):
+class FrequentTest(NormalTest):
     """Frequent Test:
     a. Start <thread_count> threads per <interval_seconds> seconds, and run self.cases one by one in each thread.
-    b. Repeat #a with <repeat_times> times.
 
     Note: only have <max_thread_count> running if it is set.
 
@@ -411,13 +401,14 @@ class FrequentTest(SimultaneousTest):
     """
     __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
                  'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'completed_case_count', 'started_case_count',
-                 'repeat_times', 'interval_seconds', 'current_repeat_times',
-                 'thread_count', '_repeat_capture_timer', 'is_repeat_started',
+                 'is_cancelled', 'round_finished', 'round_started', 'current_round',
+                 'interval_seconds', 'thread_count', '_repeat_capture_timer',
                  'max_thread_count', 'thread_started', 'thread_finished']
 
     def __init__(self):
         super(FrequentTest, self).__init__()
+        self.thread_count = 1
+        self.current_round = 0
         self.max_thread_count = 0
         self.thread_started = 0
         self.thread_finished = 0
@@ -438,13 +429,13 @@ class FrequentTest(SimultaneousTest):
 
     def repeat_capture_timer_method(self):
         """Timer callback method: start next round of Frequent testing."""
-        if self.current_repeat_times >= self.repeat_times:
-            if self.completed_case_count >= self.started_case_count:
+        if self.is_cancelled:
+            if self.round_finished >= self.round_started:
                 self._repeat_capture_timer.cancel()
                 self.process_finished()
                 return
         else:
-            print("Starting (%d) round..." % self.current_repeat_times)
+            print("Starting (%d) round..." % self.current_round)
             if self.max_thread_count <= self.thread_count:
                 available_count = self.thread_count
             else:
@@ -457,17 +448,16 @@ class FrequentTest(SimultaneousTest):
                 for c in self.cases:
                     c2 = copy.deepcopy(c)
                     c2.is_under_stress_test = True
-                    c2.repeat_index = self.current_repeat_times
+                    c2.repeat_index = self.current_round
                     new_cases.append(c2)
                 td = threading.Thread(target=self.run_cases, args=(new_cases,))
                 tds.append(td)
-            case_count = len(self.cases)
             for td in tds:
                 if self.is_cancelled:
                     return
-                self.started_case_count += case_count
+                self.round_started += 1
                 td.start()
-            self.current_repeat_times += 1
+            self.current_round += 1
             self.thread_started += available_count
             print("Initialized %d threads" % available_count)
 

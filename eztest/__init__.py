@@ -14,7 +14,7 @@ import traceback
 
 from . import ini, mail, testcase, testmode, utility
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 module_name = "eztest"
 version = "{} v{}".format(module_name, __version__)
 __all__ = ["ini", "stringbuilder", "testcase", "utility"]
@@ -266,11 +266,13 @@ def _parser_args(args=None):
     _add_argument(test_group, long_option="--repeat", short_option="-r", dest="repeat", type=int, default=1,
                   help="Repeat [repeat] times of testing. Default value is 1")
     _add_argument(test_group, long_option="--interval", short_option="-i", dest="interval", type=int, default=0,
-                  help="Slept [interval] seconds after one round of testing. Default value is 0.")
+                  help="Sleep [interval] seconds after one round of testing. Default value is 0.")
     _add_argument(test_group, long_option="--limit", short_option="-l", dest="limit", type=int, default=0,
                   help="Only can have [limit] count of running threads. No limitation if this is less than or equals to \"stress\".")
     _add_argument(test_group, long_option="--starts", short_option="-st", dest="starts", type=_to_datetime,
                   help="""Testing will be started at [starts]. It is datetime string(e.g.: "2014-01-02 03:04:05").""")
+    _add_argument(test_group, long_option="--duration", short_option="-d", dest="duration", type=int,
+                  help="""Testing will continue with [duration] minutes. Will be ignored if "ends" is provided.""")
     _add_argument(test_group, long_option="--ends", short_option="-et", dest="ends", type=_to_datetime,
                   help="""Testing will be stopped at [ends]. It is datetime string(e.g.: "2014-01-02 03:04:05").""")
 
@@ -371,11 +373,14 @@ def main(args=None):
             else:
                 nt = testmode.FrequentTest()
                 nt.thread_count = args.stress
-                nt.repeat_times = args.repeat
                 nt.max_thread_count = args.limit
                 nt.interval_seconds = args.interval
             nt.starts_time = args.starts
-            nt.ends_time = args.ends
+            if args.ends:
+                nt.ends_time = args.ends
+            elif args.duration is not None and args.duration > 0:
+                dtnow = datetime.datetime.now()
+                nt.ends_time = (args.starts if args.starts and args.starts > dtnow else dtnow) + datetime.timedelta(minutes=args.duration)
             nt.no_report = args.no_report
             if args.report_folder:
                 nt.report_folder = args.report_folder

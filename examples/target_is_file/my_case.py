@@ -14,18 +14,17 @@ class MyCase(testcase.BaseCase):
         return new
 
     def initialize(self):
-        self.log("-"*80, True)
-        self.log("Doing case %s: %s" % (self.id, self.description), True)
+        self.log("Doing case %s" % self.description)
         return True
 
     def run(self):
-        print("Calling {}...".format(self.url))
+        self.log("Calling {}...".format(self.url))
         time.sleep(5)
         return True
 
     def verify(self):
         self.status = True
-        self.log("Verifying...", True)
+        self.log("Verifying...")
 
 
 def setup_module():

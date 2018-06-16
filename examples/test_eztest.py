@@ -34,7 +34,7 @@ def concurrency_test():
     eztest.main(['', '-m', 'concurrency',
                  '-t', file_path,
                  '-s', '2',
-                 '--ends', (datetime.datetime.now() + datetime.timedelta(seconds=60)).strftime('%Y-%m-%d %H:%M:%S'),
+                 '--duration', '1',
                  '--nolog'])
 
 
@@ -43,7 +43,7 @@ def frequent_test():
     file_path = os.path.join('target_is_test_func', 'test_case.py')
     eztest.main(['', '-m', 'frequent',
                  '-t', file_path,
-                 '-r', '2',
+                 '-d', '1',
                  '-s', '2',
                  '-i', '1',
                  '--nolog'])
@@ -78,7 +78,9 @@ def target_is_file():
 
 
 if __name__ == '__main__':
-    target_is_test_function()
-
+    # simultaneous_test()
+    # continuous_test()
+    # target_is_test_function()
+    target_is_module()
     # run from command
-    os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
+    # os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))

@@ -1,8 +1,6 @@
 Project
 -------
-eztest
-
-A Python package used for performance/load testing.
+``eztest`` is a Python package and execution used for performance/load testing.
 
 Home page: <https://github.com/lgt1001/eztest>
 
@@ -12,7 +10,105 @@ Features
 - Continuous: Run cases [repeat] times with [interval] seconds' sleeping.
 - Simultaneous: Start [stress] threads and run cases in each thread, sleep [interval] seconds after all cases are finished, and then start testing again with [repeat] times.
 - Concurrency: Start [stress] threads and each thread will continuously run cases with [interval] seconds' sleeping.
-- Frequent: Start [stress] threads per [interval] seconds and do this [repeat] times. And only can have [limit] available threads running.
+- Frequent: Start [stress] threads per [interval] seconds. And only can have [limit] available threads running.
+
+``eztest`` command::
+
+    $ eztest -h
+    usage: eztest [-h] --target TARGET [--classes CLASSES [CLASSES ...]]
+                  [--not-classes NOT_CLASSES [NOT_CLASSES ...]]
+                  [--cases CASES [CASES ...]]
+                  [--not-cases NOT_CASES [NOT_CASES ...]]
+                  [--mode {0,1,2,3,4,normal,continuous,simultaneous,concurrency,frequent}]
+                  [--stress STRESS] [--repeat REPEAT] [--interval INTERVAL]
+                  [--limit LIMIT] [--starts STARTS] [--ends ENDS]
+                  [--mail-config MAIL_CONFIG] [--report-folder REPORT_FOLDER]
+                  [--noreport] [--nolog] [--version]
+
+    eztest
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --version, -v         show program's version number and exit
+
+    Case Group:
+      Define arguments of case related.
+
+      --target TARGET, -t TARGET
+                            Folder or file path, or a module, a __init__.py file is required under that folder/module.
+      --classes CLASSES [CLASSES ...], -cl CLASSES [CLASSES ...]
+                            Class names to be tested. It will be considered if target is file.
+      --not-classes NOT_CLASSES [NOT_CLASSES ...], -ncl NOT_CLASSES [NOT_CLASSES ...]
+                            Class names to be ignored. It will be considered if target is file.
+      --cases CASES [CASES ...], -c CASES [CASES ...]
+                            Case names to be tested. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").
+      --not-cases NOT_CASES [NOT_CASES ...], -nc NOT_CASES [NOT_CASES ...]
+                            Case names to be ignored. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").
+
+    Test Mode Group:
+      Define arguments of test mode related.
+
+      --mode {0,1,2,3,4,normal,continuous,simultaneous,concurrency,frequent}, -m {0,1,2,3,4,normal,continuous,simultaneous,concurrency,frequent}
+                            (a)0 or normal: Run selected cases only once.
+                            (b)1 or continuous: Run cases [repeat] times with [interval] seconds' sleeping.
+                            (c)2 or simultaneous: Start [stress] threads and run cases in each thread, sleep [interval] seconds after all cases are finished, and then start testing again with [repeat] times.
+                            (d)3 or concurrency: Start [stress] threads and each thread will continuously run cases with [interval] seconds' sleeping.
+                            (e)4 or frequent: Start [stress] threads per [interval] seconds. And only can have [limit] available threads running.
+      --stress STRESS, -s STRESS
+                            Start [stress] threads in each round of testing. Default value is 1.
+      --repeat REPEAT, -r REPEAT
+                            Repeat [repeat] times of testing. Default value is 1
+      --interval INTERVAL, -i INTERVAL
+                            Slept [interval] seconds after one round of testing. Default value is 0.
+      --limit LIMIT, -l LIMIT
+                            Only can have [limit] count of running threads. No limitation if this is less than or equals to "stress".
+      --starts STARTS, -st STARTS
+                            Testing will be started at [starts]. It is datetime string(e.g.: "2014-01-02 03:04:05").
+      --duration DURATION, -d DURATION
+                            Testing will continue with [duration] minutes. Will be ignored if "ends" is provided.
+      --ends ENDS, -et ENDS
+                            Testing will be stopped at [ends]. It is datetime string(e.g.: "2014-01-02 03:04:05").
+
+    Report/Log Group:
+      Define arguments of report or log related.
+
+      --mail-config MAIL_CONFIG, -mc MAIL_CONFIG
+                            Mail configuration file which contains mail server information etc.
+                            It should be INI format file(http://en.wikipedia.org/wiki/INI_file).
+                            Will send report by mail only if mail-config is provided and report file is generated.
+                            Section is "SMTP" and properties can be "server", "from_mail", "to_mails", "cc_mails", "bcc_mails", "username", "password", "need_authentication" and "subject".
+                            "server", "from_mail" and "to_mails" are mandatory.
+                            "to_mails", "cc_mails" and "bcc_mails" can be multiple values separated by comma.
+                            "need_authentication" is boolean, "username" and "password" are required if "need_authentication" is True.
+      --report-folder REPORT_FOLDER, -rf REPORT_FOLDER
+                            Report and log files will be saved under [report-folder].
+      --noreport, -nr       No report file will be generated if [noreport] is clarified.
+      --nolog, -nl          No log file will be generated if [nolog] is clarified.
+
+
+Examples::
+
+    # Normal testing
+    $ eztest --target examples/target_is_unittest/test_case.py
+
+    # Continuous testing and repeat 100 times
+    $ eztest --mode continuous --target examples/target_is_unittest/test_case.py --repeat 100 --nolog
+
+    # Simultaneous testing, start 50 threads and repeat 100 times
+    $ eztest --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --repeat 100 --nolog
+
+    # Concurrency testing, start 50 threads and run 1 hour
+    $ eztest --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
+
+    # Frequent testing, start 50 threads and run 1 hour
+    $ eztest --mode frequent --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
+
+    # Ignore cases
+    $ eztest --target examples/target_is_unittest/test_case.py --not-cases test_hello
+
+    # Target is a module with CASES defined.
+    $ eztest --target examples.target_is_module
+
 
 Prerequisites
 --------

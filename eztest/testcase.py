@@ -79,7 +79,11 @@ class BaseCase(object):
         """
         if message is None:
             return
-        msg = "%s\t%s\t%s" % (datetime.datetime.now().strftime("%Y-%d-%m %H:%M:%S.%f"), level, message) if not no_format else str(message)
+        msg = msg = "{}\t{}\t{}\t{}".format(
+                datetime.datetime.now().strftime("%Y-%d-%m %H:%M:%S.%f"),
+                level,
+                self.id,
+                message) if not no_format else str(message)
         if to_console:
             print(msg)
         if not self.no_log and self._file:
@@ -161,7 +165,7 @@ class BaseCase(object):
         for line in lines:
             sb.append_line(line)
         msg = sb.to_string().rstrip('\n')
-        self.log(msg, True)
+        self.log(msg, True, ERROR)
         self.output_messages.append(msg)
 
     def do_case(self):
@@ -190,11 +194,11 @@ class BaseCase(object):
                 self.dispose()
             except Exception:
                 pass
-            self.log("-" * 40, True)
+            self.log("-" * 40)
             if self.status:
-                self.log("Case[%s] is Pass." % self.id, True)
+                self.log("Case is Pass.", True)
             else:
-                self.log("Case[%s] is Fail." % self.id, True)
+                self.log("Case is Fail.", True, ERROR)
             if self._file is not None and (not self._file.closed):
                 self._file.close()
             if self.on_finished:
