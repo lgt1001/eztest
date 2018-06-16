@@ -1,0 +1,84 @@
+import eztest
+import os
+import datetime
+
+
+def target_is_test_function():
+    """Target is a file, and it cotnains "test_*" functions."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '--target', file_path])
+
+
+def continuous_test():
+    """Continuous testing, define repeat times."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '-m', 'continuous',
+                 '-t', file_path,
+                 '-r', '2',
+                 '--nolog'])
+
+
+def simultaneous_test():
+    """Simultaneous testing, define stress count and repeat times."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '-m', 'simultaneous',
+                 '-t', file_path,
+                 '-r', '2',
+                 '-s', '2',
+                 '--nolog'])
+
+
+def concurrency_test():
+    """Concurrency testing, define stress count and ends datetime."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '-m', 'concurrency',
+                 '-t', file_path,
+                 '-s', '2',
+                 '--ends', (datetime.datetime.now() + datetime.timedelta(seconds=60)).strftime('%Y-%m-%d %H:%M:%S'),
+                 '--nolog'])
+
+
+def frequent_test():
+    """Frequent testing, define stress count and repeat times and internal in second."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '-m', 'frequent',
+                 '-t', file_path,
+                 '-r', '2',
+                 '-s', '2',
+                 '-i', '1',
+                 '--nolog'])
+
+
+def ignore_cases():
+    """Define cases to be ignored."""
+    file_path = os.path.join('target_is_test_func', 'test_case.py')
+    eztest.main(['', '-m', 'simultaneous',
+                 '-t', file_path,
+                 '--not-cases', 'test_hello',
+                 '-r', '2',
+                 '-s', '2',
+                 '--nolog'])
+
+
+def target_is_unittest():
+    """Target is a file, and it cotnains classes inherit from unittest.TestCase."""
+    file_path = os.path.join('target_is_unittest', 'test_case.py')
+    eztest.main(['', '-t', file_path])
+
+
+def target_is_module():
+    """Target is a module, and has CASES variable defined."""
+    eztest.main(['', '-t', 'target_is_module'])
+
+
+def target_is_file():
+    """Target is a file, and has CASES variable defined."""
+    file_path = os.path.join('target_is_file', 'my_case.py')
+    eztest.main(['', '-t', file_path])
+
+
+if __name__ == '__main__':
+    target_is_test_function()
+
+    # run from command
+    os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
