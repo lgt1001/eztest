@@ -154,46 +154,42 @@ def _load_cases(target, case_matches=None, ignore_match_parts=None, class_matche
     :return list: a list of dictionary which contians 'module_name', 'type', 'setup_module', 'teardown_module',
         'setup_function', 'teardown_function', 'cases'.
     """
-    sys.path.append(os.getcwd())
-    results = []
-    if not os.path.isfile(target):
-        m_name = target.rstrip('/\\')
-        dir_name = os.path.dirname(m_name)
-        if dir_name:
-            m_name = os.path.basename(m_name)
-            try:
-                t = importlib.import_module(m_name, re.sub('[/\\\\]', ".", dir_name))
-            except(SystemError, ImportError):
-                if not os.path.isabs(dir_name):
-                    dir_name = os.path.normpath(os.path.join(os.getcwd(), dir_name))
-                    target = os.path.join(dir_name, m_name)
-                sys.path.append(dir_name)
-                t = importlib.import_module(m_name)
-        else:
+    if os.path.isfile(target):
+        t = utility.import_module(target)
+    elif os.path.isdir(target):
+        target = target.rstrip('/\\')
+        dirname = os.path.dirname(target)
+        if not os.path.isabs(dirname):
+            dirname = os.path.normpath(os.path.join(os.getcwd(), dirname))
+        sys.path.append(dirname)
+        t = importlib.import_module(os.path.basename(target))
+    else:
+        m_name = re.sub(r'[/\\]', ".", target).strip('.')
+        try:
             t = importlib.import_module(m_name)
+        except(SystemError, ImportError):
+            sys.path.append(os.getcwd())
+            t = importlib.import_module(m_name)
+
+    results = []
+    if hasattr(t, "CASES"):
         result = _load_class_cases(t, case_matches, ignore_match_parts)
         result["module_name"] = target
         results.append(result)
     else:
-        t = utility.import_module(target)
-        if hasattr(t, "CASES"):
-            result = _load_class_cases(t, case_matches, ignore_match_parts)
-            result["module_name"] = t.__file__
-            results.append(result)
-        else:
-            funcs = inspect.getmembers(t, predicate=inspect.isfunction)
-            result = _load_test_cases(funcs, case_matches, ignore_match_parts, False)
-            result["module_name"] = t.__file__
-            results.append(result)
-            classes = inspect.getmembers(t, predicate=inspect.isclass)
-            for classobj in classes:
-                class_name = classobj[0]
-                if _is_matched(class_name, class_matches, ignore_class_matches):
-                    obj = getattr(t, class_name)()
-                    funcs = inspect.getmembers(obj, predicate=inspect.ismethod)
-                    result = _load_test_cases(funcs, case_matches, ignore_match_parts, True)
-                    result["module_name"] = "%s:%s" % (t.__file__, class_name)
-                    results.append(result)
+        funcs = inspect.getmembers(t, predicate=inspect.isfunction)
+        result = _load_test_cases(funcs, case_matches, ignore_match_parts, False)
+        result["module_name"] = target
+        results.append(result)
+        classes = inspect.getmembers(t, predicate=inspect.isclass)
+        for classobj in classes:
+            class_name = classobj[0]
+            if _is_matched(class_name, class_matches, ignore_class_matches):
+                obj = getattr(t, class_name)()
+                funcs = inspect.getmembers(obj, predicate=inspect.ismethod)
+                result = _load_test_cases(funcs, case_matches, ignore_match_parts, True)
+                result["module_name"] = "%s:%s" % (target, class_name)
+                results.append(result)
     return results
 
 

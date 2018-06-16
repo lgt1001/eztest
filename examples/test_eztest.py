@@ -1,10 +1,10 @@
-import eztest
 import os
-import datetime
+
+import eztest
 
 
 def target_is_test_function():
-    """Target is a file, and it cotnains "test_*" functions."""
+    """Target is a file, and it contains "test_*" functions."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
     eztest.main(['', '--target', file_path])
 
@@ -61,7 +61,7 @@ def ignore_cases():
 
 
 def target_is_unittest():
-    """Target is a file, and it cotnains classes inherit from unittest.TestCase."""
+    """Target is a file, and it contains classes inherit from unittest.TestCase."""
     file_path = os.path.join('target_is_unittest', 'test_case.py')
     eztest.main(['', '-t', file_path])
 
@@ -71,16 +71,31 @@ def target_is_module():
     eztest.main(['', '-t', 'target_is_module'])
 
 
+def target_is_module_not_base_case():
+    """Target is a module, and has not CASES variable defined."""
+    eztest.main(['', '-t', 'target_is_test_func.test_case'])
+
+
 def target_is_file():
     """Target is a file, and has CASES variable defined."""
     file_path = os.path.join('target_is_file', 'my_case.py')
     eztest.main(['', '-t', file_path])
 
 
+def target_is_folder_with_base_case():
+    """Target is a module, and has CASES variable defined."""
+    eztest.main(['', '-t', os.path.join(os.getcwd(), 'target_is_module')])
+
+
 if __name__ == '__main__':
     # simultaneous_test()
     # continuous_test()
     # target_is_test_function()
-    target_is_module()
+    # target_is_unittest()
+    # target_is_module()
+    # target_is_module_not_base_case()
+    # target_is_file()
+    # target_is_folder_with_base_case()
     # run from command
     # os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
+    pass
