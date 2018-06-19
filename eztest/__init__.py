@@ -4,7 +4,6 @@ Copyright (C) 2014 lgt, version 1.0 by lgt
 * https://github.com/lgt1001/eztest
 """
 import datetime
-import enum
 import importlib
 import inspect
 import os
@@ -14,7 +13,7 @@ import traceback
 
 from . import ini, mail, testcase, testmode, utility
 
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 module_name = "eztest"
 version = "{} v{}".format(module_name, __version__)
 __all__ = ["ini", "stringbuilder", "testcase", "utility"]
@@ -30,7 +29,7 @@ else:
     import argparse
 
 
-class CaseType(enum.Enum):
+class CaseType(object):
     """Case types."""
     ClassCase = 0
     FunctionCase = 1

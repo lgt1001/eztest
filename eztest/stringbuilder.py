@@ -11,42 +11,42 @@ from .utility import tostr
 
 
 class StringBuilder(object):
-    __slots__ = ['length', '_data']
+    __slots__ = ['length', 'data']
 
     def __init__(self, value=None):
         """Initializes a new instance of the StringBuilder class.
 
-        :param value: value can be StringBuilder object, or string, or None.
+        :param str|StringBuilder value: value can be StringBuilder object, or string, or None.
         """
         self.length = 0
         if value is None:
-            self._data = []
+            self.data = []
         else:
             if issubclass(type(value), StringBuilder):                
-                self._data = value._data
+                self.data = value.data
                 self.length = value.length
             else:
                 value = tostr(value)
-                self._data = [value]
+                self.data = [value]
                 self.length = len(value)
 
     def append(self, value):
         """Append a string.
 
-        :param value : value to be appended, will convert to string
+        :param str value: value to be appended, will convert to string
         """
         if value is not None:
             value = tostr(value)
-            self._data.append(value)
+            self.data.append(value)
             self.length += len(value)
             
     def append_line(self, value):
         """Append a string with "\n".
 
-        :param value : value to be appended, will convert to string
+        :param str value: value to be appended, will convert to string
         """
         if value is None:
-            self.append('\n')
+            self.data.append('\n')
             self.length += 1
         else:
             value = tostr(value)
@@ -59,7 +59,7 @@ class StringBuilder(object):
         :param str delimiter : union all members in StringBuilder with delimiter.
         """
         if self.length > 0:
-            return "".join(self._data) if delimiter is None else tostr(delimiter).join(self._data)
+            return "".join(self.data) if delimiter is None else tostr(delimiter).join(self.data)
         else:
             return ""
 
@@ -75,10 +75,23 @@ class StringBuilder(object):
         return self.length
 
     def __add__(self, value):
-        """Append a string.
+        """Add a string or StringBuilder object.
 
-        :param value : value to be appended, will convert to string
+        :param str|StringBuilder value: value can be StringBuilder object, or string.
         :return StringBuilder: StringBuilder object.
         """
-        self.append(value)
+        if isinstance(value, StringBuilder):
+            self.data.extend(value.data)
+            self.length += value.length
+        else:
+            self.append(value)
         return self
+
+    def __iadd__(self, other):
+        """Add a string or StringBuilder object.
+
+        :param str|StringBuilder other: can be StringBuilder object, or string.
+        :return StringBuilder: StringBuilder object.
+        """
+        return self.__add__(other)
+

@@ -294,7 +294,7 @@ def import_module(file_path):
     module = os.path.splitext(os.path.basename(file_path))[0]
     if sys.version_info < (3, 3):
         import imp
-        fn, filename, data = imp.find_module(module, [file_path])
+        fn, filename, data = imp.find_module(module, [os.path.dirname(file_path)])
         t = imp.load_module(module, fn, filename, data)
         if fn is not None and not fn.closed:
             fn.close()
