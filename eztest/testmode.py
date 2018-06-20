@@ -113,7 +113,7 @@ class NormalTest(object):
         report_msg = '''"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"''' % (
             case.repeat_index, case.id,
             case.description.replace('"', '""') if case.description else "",
-                            "Pass" if case.status else "Fail",
+            "Pass" if case.status else "Fail",
             case.expected.replace('"', '""') if case.expected else "",
             case.received.replace('"', '""') if case.received else "",
             msg, utility.date2str(case.start_datetime), utility.date2str(case.end_datetime),
@@ -132,15 +132,17 @@ class NormalTest(object):
         """Run cases in sequence.
 
         :param list cases: cases."""
-        for case in cases:
-            if self.is_cancelled:
-                break
-            if case is not None:
-                if hasattr(case, "on_finished"):
-                    case.on_finished = self.case_finished
-                case.do_case()
-        with self._mutex:
-            self.round_finished += 1
+        try:
+            for case in cases:
+                if self.is_cancelled:
+                    break
+                if case is not None:
+                    if hasattr(case, "on_finished"):
+                        case.on_finished = self.case_finished
+                    case.do_case()
+        finally:
+            with self._mutex:
+                self.round_finished += 1
 
     def cancel(self):
         """Cancel testing."""
@@ -156,7 +158,7 @@ class NormalTest(object):
     def start_test(self):
         """Start testing."""
         print("Starting testing...")
-        self.round_started = len(self.cases)
+        self.round_started = 1
         try:
             self.run_cases(self.cases)
         except Exception:

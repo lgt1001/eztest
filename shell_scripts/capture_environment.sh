@@ -1,9 +1,9 @@
 #!/bin/bash
 #######################################################################################################################
-# 1. collect following info from system commands per 10 seconds and save to $file_path
-#       Load Average, CPU Usage, Memory Info from "top" command,
-#       TCP Connection Count,Cassandra Connection Count from "netstat" command,
-#       File Opened Count from "/proc/sys/fs/file-nr" file,
+# Collect following info from system commands per 10 seconds and save to $file_path
+#   Load Average, CPU Usage, Memory Info from "top" command,
+#   TCP Connection Count from "netstat" command,
+#   File Opened Count from "/proc/sys/fs/file-nr" file,
 #######################################################################################################################
 
 if [[ "$#" > 0 ]]; then
@@ -20,9 +20,6 @@ echo "Load Average,CPU Usage,Memory Info,TCP Connection Count,File Opened Count,
 while true;
 do
     env=$(top -bn1)
-    #load average: 0.00, 0.00, 0.00
-    #Cpu(s): 0.0%us
-    #Mem: 1922624k total, 1416664k used, 505960k free, 266624k
     [[ $env =~ $pattern_load ]]
     load_averge=${BASH_REMATCH[1]}
     [[ $env =~ $pattern_cpu ]]

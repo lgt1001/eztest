@@ -1,8 +1,7 @@
 #!/bin/bash
 #######################################################################################################################
-# 1. calc following average from $file_path.
-#       Load Average,CPU Usage,Memory Info,
-#       TCP Connection Count,File Opened Count,
+# Calculate following average from $file_path.
+#   Load Average,CPU Usage,Memory Info,TCP Connection Count,File Opened Count
 #######################################################################################################################
 
 if [[ "$#" > 0 ]]; then
