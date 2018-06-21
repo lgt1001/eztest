@@ -3,10 +3,12 @@ examples:
 from eztest.calc_report import calc
 calc(["a.csv", "b.csv"], 30)
 calc("a.csv")
+calc("folder_a")
 
 # Or run from command line
 eztest --calc "a.csv" "b.csv" --group-minutes 30
 eztest --calc "a.csv"
+eztest --calc "folder_a"
 
 Output:
 Case Id,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken
@@ -113,49 +115,61 @@ def calc(file_paths, group_minutes=60):
     group_gap = datetime.timedelta(seconds=group_minutes * 60)
     if not isinstance(file_paths, list):
         file_paths = [file_paths]
+    file_list = []
+    for file_path in file_paths:
+        if os.path.isfile(file_path):
+            file_list.append(file_path)
+        elif os.path.isdir(file_path):
+            file_list.extend([os.path.join(file_path, f) for f in os.listdir(file_path) if os.path.isfile(os.path.join(file_path, f))])
+        else:
+            print('Error: cannot find {}.'.format(file_path))
 
     group_summary = OrderedDict()
     case_summary = dict()
-    for file_path in file_paths:
-        if not os.path.exists(file_path):
-            print('Error: cannot find {}.'.format(file_path))
-            continue
-
+    for file_path in file_list:
         print('Calculating for {}...'.format(file_path))
         start_times, id, is_pass = dict(), None, None
-        with open(file_path, 'r') as f:
-            while True:
+        try:
+            with open(file_path, 'r') as f:
                 line = f.readline()
-                if not line:
-                    break
-                status_match = STATUS_PATTERN.match(line)
-                time_match = TIME_PATTERN.search(line)
-                if status_match:
-                    id = status_match[1]
-                    is_pass = True if status_match[2] == 'Pass' else False
+                if not line or not line.startswith('"Repeat Index","Id","Description","Status"'):
+                    print('Not report file, ignore file: {}'.format(file_path))
+                    continue
 
-                if time_match:
-                    start_date, end_date, time_taken = utility.str2date(time_match[1]), utility.str2date(time_match[2]), float(time_match[3])
-                    _add_to_case_summary(case_summary, id, time_taken, is_pass)
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break
+                    status_match = STATUS_PATTERN.match(line)
+                    time_match = TIME_PATTERN.search(line)
+                    if status_match:
+                        id = status_match[1]
+                        is_pass = True if status_match[2] == 'Pass' else False
 
-                    if id not in start_times:
-                        start_times[id] = start_date.replace(second=0, microsecond=0)
-                    my_start_time = start_times[id]
+                    if time_match:
+                        start_date, end_date, time_taken = utility.str2date(time_match[1]), utility.str2date(time_match[2]), float(time_match[3])
+                        _add_to_case_summary(case_summary, id, time_taken, is_pass)
 
-                    if my_start_time + group_gap >= end_date:
-                        _add_to_group_summary(group_summary, id, my_start_time, time_taken, is_pass)
-                    else:
-                        while True:
-                            my_start_time += group_gap
-                            start_times[id] = my_start_time
-                            if my_start_time + group_gap < end_date:
-                                _add_to_group_summary(group_summary, id, my_start_time)
-                            else:
-                                break
-                        _add_to_group_summary(group_summary, id, my_start_time, time_taken, is_pass)
+                        if id not in start_times:
+                            start_times[id] = start_date.replace(second=0, microsecond=0)
+                        my_start_time = start_times[id]
+
+                        if my_start_time + group_gap >= end_date:
+                            _add_to_group_summary(group_summary, id, my_start_time, time_taken, is_pass)
+                        else:
+                            while True:
+                                my_start_time += group_gap
+                                start_times[id] = my_start_time
+                                if my_start_time + group_gap < end_date:
+                                    _add_to_group_summary(group_summary, id, my_start_time)
+                                else:
+                                    break
+                            _add_to_group_summary(group_summary, id, my_start_time, time_taken, is_pass)
+        except Exception:
+            print('Not report file, ignore file: {}'.format(file_path))
 
     if not group_summary:
-        print('Invalid report file')
+        print('No report result found.')
     else:
         print("\n\nCase Id,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken")
         groups = []

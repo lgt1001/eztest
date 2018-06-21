@@ -7,7 +7,7 @@ from setuptools import setup
 
 setup(
     name="eztest",
-    version="1.0.5",
+    version="1.0.6",
     description="eztest is a Python package and execution used for performance/load testing.",
     long_description=open('README.rst').read(),
     author='lgt',
@@ -33,6 +33,6 @@ setup(
     license="GPL",
     platforms=["Windows", "MacOS", "Unix", "Linux"],
     packages=['eztest'],
-    zip_safe=False,
+    zip_safe=True,
     entry_points=dict(console_scripts=['eztest=eztest:main'])
 )
