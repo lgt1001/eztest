@@ -57,7 +57,7 @@ class NormalTest(object):
         self.setup = None
         self.teardown = None
         self.no_report = False
-        self.report_folder = "reports"
+        self.report_folder = 'reports'
         self.mail = None
         self.additional_report_header = []
         self.test_mode = NORMAL
@@ -77,15 +77,15 @@ class NormalTest(object):
         if self._f is not None and (not self._f.closed):
             self._f.close()
         if self.mail is not None:
-            print("-" * 80)
-            print("Sending email...")
+            print('-' * 80)
+            print('Sending email...')
             dtnow = datetime.datetime.now()
             report_fname = os.path.basename(self._report_path)
             report_zipname = '{}_{}.zip'.format(os.path.splitext(report_fname)[0], dtnow.strftime('%Y%m%d%H%M%S'))
             is_file_compressed = False
             try:
-                with zipfile.ZipFile(report_zipname, 'w') as myzip:
-                    myzip.write(self._report_path, report_fname)
+                with zipfile.ZipFile(report_zipname, 'w') as my_zip:
+                    my_zip.write(self._report_path, report_fname)
                 is_file_compressed = True
                 self.mail.send(subject='{}. {}'.format(self.mail.subject, dtnow.strftime('%Y-%m-%d %H:%M:%S')),
                                attachments=report_zipname)
@@ -97,32 +97,32 @@ class NormalTest(object):
                         os.remove(self._report_path)
                     except:
                         pass
-        print("-" * 80)
+        print('-' * 80)
         if self.teardown:
             self.teardown()
-        print("Completed all test cases!")
+        print('Completed all test cases!')
 
     def case_finished(self, case):
         """Process after case is finished: log output from case to report file.
 
         :param BaseCase case: case."""
-        msg = ""
+        msg = ''
         for message in case.output_messages:
-            msg += (message.replace('"', '""') if message else "") + "\n"
+            msg += (message.replace('"', '""') if message else '') + '\n'
         tt = case.get_time_taken()
-        report_msg = '''"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"''' % (
+        report_msg = '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % (
             case.repeat_index, case.id,
-            case.description.replace('"', '""') if case.description else "",
-            "Pass" if case.status else "Fail",
-            case.expected.replace('"', '""') if case.expected else "",
-            case.received.replace('"', '""') if case.received else "",
+            case.description.replace('"', '""') if case.description else '',
+            'Pass' if case.status else 'Fail',
+            case.expected.replace('"', '""') if case.expected else '',
+            case.received.replace('"', '""') if case.received else '',
             msg, utility.date2str(case.start_datetime), utility.date2str(case.end_datetime),
-            tt if tt is not None else "",
-            case.log_path if case.log_path else "")
+            tt if tt is not None else '',
+            case.log_path if case.log_path else '')
         if case.additional_messages:
             for message in case.additional_messages:
-                report_msg += ',"%s"' % (str(message).replace('"', '""') if message is not None else "")
-        report_msg += "\n"
+                report_msg += ',"%s"' % (str(message).replace('"', '""') if message is not None else '')
+        report_msg += '\n'
         with self._mutex:
             if self._f:
                 self._f.write(report_msg)
@@ -137,7 +137,7 @@ class NormalTest(object):
                 if self.is_cancelled:
                     break
                 if case is not None:
-                    if hasattr(case, "on_finished"):
+                    if hasattr(case, 'on_finished'):
                         case.on_finished = self.case_finished
                     case.do_case()
         finally:
@@ -147,7 +147,7 @@ class NormalTest(object):
     def cancel(self):
         """Cancel testing."""
         self.is_cancelled = True
-        print("Cancelled at %s" % datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f"))
+        print('Cancelled at %s' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f'))
 
     def stop_test(self):
         """Stop testing."""
@@ -157,12 +157,12 @@ class NormalTest(object):
 
     def start_test(self):
         """Start testing."""
-        print("Starting testing...")
+        print('Starting testing...')
         self.round_started = 1
         try:
             self.run_cases(self.cases)
         except Exception:
-            print("-" * 80)
+            print('-' * 80)
             traceback.print_exc()
         finally:
             self.process_finished()
@@ -182,22 +182,22 @@ class NormalTest(object):
                     if not os.path.exists(self.report_folder):
                         os.mkdir(self.report_folder)
                     self._report_path = os.path.join(
-                        self.report_folder, "report_%s.csv" % datetime.datetime.now().strftime("%Y%m%d%H%M%S%f"))
+                        self.report_folder, 'report_%s.csv' % datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'))
                     f = open(self._report_path, 'w')
                     f.write('"Repeat Index","Id","Description","Status","Expected","Received","Output",'
                             '"Starts DateTime","Ends DateTime","E2E Taken","Log Path"')
                     if self.additional_report_header:
                         for h in self.additional_report_header:
                             f.write(',%s' % h)
-                    f.write("\n")
+                    f.write('\n')
                     self._f = f
                 if self.starts_time:
-                    print("Waiting until %s..." % self.starts_time)
+                    print('Waiting until %s...' % self.starts_time)
                     total_seconds = (self.starts_time - datetime.datetime.now()).total_seconds()
                     if total_seconds > 0:
                         time.sleep(total_seconds)
                 if self.ends_time:
-                    print("Will be stopped at %s..." % self.ends_time)
+                    print('Will be stopped at %s...' % self.ends_time)
                     total_seconds = (self.ends_time - datetime.datetime.now()).total_seconds()
                     if total_seconds > 0:
                         self._stop_test_timer = threading.Timer(total_seconds, self.stop_test)
@@ -206,10 +206,10 @@ class NormalTest(object):
                         return
                 if self.setup:
                     self.setup()
-                print("-" * 80)
+                print('-' * 80)
                 self.start_test()
             except Exception:
-                print("-" * 80)
+                print('-' * 80)
                 traceback.print_exc()
 
 
@@ -238,7 +238,7 @@ class ContinuousTest(NormalTest):
         try:
             for rp1 in range(self.repeat_times):
                 self.current_round = rp1
-                print("Starting (%d) round..." % rp1)
+                print('Starting (%d) round...' % rp1)
                 new_cases = []
                 for c in self.cases:
                     c2 = copy.deepcopy(c)
@@ -249,7 +249,7 @@ class ContinuousTest(NormalTest):
                 if self.interval_seconds > 0:
                     time.sleep(self.interval_seconds)
         except Exception:
-            print("-" * 80)
+            print('-' * 80)
             traceback.print_exc()
         finally:
             self.process_finished()
@@ -298,7 +298,7 @@ class SimultaneousTest(ContinuousTest):
         else:
             run_required = True
         if run_required:
-            print("Starting (%d) round..." % self.current_round)
+            print('Starting (%d) round...' % self.current_round)
             tds = []
             for i in range(self.thread_count):
                 new_cases = []
@@ -409,12 +409,14 @@ class FrequentTest(NormalTest):
 
     def __init__(self):
         super(FrequentTest, self).__init__()
+        self.interval_seconds = 1
         self.thread_count = 1
         self.current_round = 0
         self.max_thread_count = 0
         self.thread_started = 0
         self.thread_finished = 0
         self.test_mode = FREQUENT
+        self._repeat_capture_timer = None
 
     def reset(self):
         """Reset: cancel existed testing, clean captured data."""
@@ -437,7 +439,7 @@ class FrequentTest(NormalTest):
                 self.process_finished()
                 return
         else:
-            print("Starting (%d) round..." % self.current_round)
+            print('Starting (%d) round...' % self.current_round)
             if self.max_thread_count <= self.thread_count:
                 available_count = self.thread_count
             else:
@@ -461,7 +463,7 @@ class FrequentTest(NormalTest):
                 td.start()
             self.current_round += 1
             self.thread_started += available_count
-            print("Initialized %d threads" % available_count)
+            print('Initialized %d threads' % available_count)
 
         self._repeat_capture_timer = threading.Timer(self.interval_seconds, self.repeat_capture_timer_method)
         self._repeat_capture_timer.start()

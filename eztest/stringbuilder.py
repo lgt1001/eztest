@@ -59,9 +59,9 @@ class StringBuilder(object):
         :param str delimiter : union all members in StringBuilder with delimiter.
         """
         if self.length > 0:
-            return "".join(self.data) if delimiter is None else tostr(delimiter).join(self.data)
+            return ''.join(self.data) if delimiter is None else tostr(delimiter).join(self.data)
         else:
-            return ""
+            return ''
 
     def __str__(self):
         """Get string from StringBuilder object."""
@@ -94,4 +94,3 @@ class StringBuilder(object):
         :return StringBuilder: StringBuilder object.
         """
         return self.__add__(other)
-

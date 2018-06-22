@@ -17,11 +17,11 @@ class UserTestOne(unittest.TestCase):
         print('Teardown class in one')
 
     def test_hello(self,):
-        print("Hello in one")
+        print('Hello in one')
         self.assertTrue(1 == 0)
 
     def test_world(self):
-        print("World in one")
+        print('World in one')
 
 
 class UserTestTwo(unittest.TestCase):
@@ -40,8 +40,8 @@ class UserTestTwo(unittest.TestCase):
         print('Teardown class in two')
 
     def test_hello(self,):
-        print("Hello in two")
+        print('Hello in two')
         self.assertTrue(1 == 0)
 
     def test_world(self):
-        print("World in two")
+        print('World in two')

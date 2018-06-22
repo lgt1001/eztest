@@ -11,7 +11,8 @@ from . import utility
 
 
 class Mail:
-    __slots__ = ['server', 'port', 'timeout', 'ssl_context', 'is_ssl', 'from_addr', 'to_addrs', 'cc_addrs', 'bcc_addrs', 'subject',
+    __slots__ = ['server', 'port', 'timeout', 'key_file', 'cert_file', 'is_ssl',
+                 'from_addr', 'to_addrs', 'cc_addrs', 'bcc_addrs', 'subject',
                  'username', 'password', 'need_authentication', 'is_html']
 
     def __init__(self, server=None, port=25):
@@ -23,7 +24,8 @@ class Mail:
         self.server = server
         self.port = port
         self.timeout = 30
-        self.ssl_context = None
+        self.key_file=None
+        self.cert_file=None
         self.is_ssl = False
         
         self.from_addr = None
@@ -41,7 +43,7 @@ class Mail:
 
     @classmethod
     def _add_attachment(cls, file_path, msg):
-        """Add attachmet to message.
+        """Add attachment to message.
 
         :param str file_path: File path.
         :param MIMEMultipart msg: message.
@@ -90,7 +92,8 @@ class Mail:
             else:
                 self._add_attachment(attachments, msg)
         if self.is_ssl:
-            s = smtplib.SMTP_SSL(host=self.server, port=int(self.port or 0), timeout=int(self.timeout), context=self.ssl_context)
+            s = smtplib.SMTP_SSL(host=self.server, port=int(self.port or 0), timeout=int(self.timeout),
+                                 keyfile=self.key_file, certfile=self.cert_file)
         else:
             s = smtplib.SMTP(host=self.server, port=int(self.port or 0), timeout=int(self.timeout))
         if utility.to_boolean(self.need_authentication) and self.username and self.password:

@@ -26,12 +26,12 @@ class BuildCase(BaseCase):
         :param bool no_format: print log message without format, otherwise the format will be "datetime level message"
         """
         if message and to_console:
-            msg = "{}\t{}\t{}\t{}".format(
-                datetime.datetime.now().strftime("%Y-%d-%m %H:%M:%S.%f"),
+            msg = '{}\t{}\t{}\t{}'.format(
+                datetime.datetime.now().strftime('%Y-%d-%m %H:%M:%S.%f'),
                 level,
                 self.id,
                 message) if not no_format else str(message)
-            sys.stdout.write(msg + "\n")
+            sys.stdout.write(msg + '\n')
             sys.stdout.flush()
 
     def do_case(self):
@@ -54,10 +54,10 @@ class BuildCase(BaseCase):
                 self.dispose()
             except Exception:
                 pass
-            self.log("-" * 40)
+            self.log('-' * 40)
             if self.status:
-                self.log("Case is Pass.", True)
+                self.log('Case is Pass.', True)
             else:
-                self.log("Case is Fail.", True, ERROR)
+                self.log('Case is Fail.', True, ERROR)
             if self.on_finished:
                 self.on_finished(self)

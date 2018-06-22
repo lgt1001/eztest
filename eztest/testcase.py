@@ -8,9 +8,9 @@ import uuid
 
 from . import utility, stringbuilder
 
-INFO = "INFO"
-WARNING = "WARN"
-ERROR = "ERROR"
+INFO = 'INFO'
+WARNING = 'WARN'
+ERROR = 'ERROR'
 
 
 class BaseCase(object):
@@ -22,7 +22,7 @@ class BaseCase(object):
         self.repeat_index = 0
 
         self.no_log = True
-        self.log_folder = "reports"
+        self.log_folder = 'reports'
         self._file = None
         self.log_path = None
 
@@ -79,15 +79,15 @@ class BaseCase(object):
         """
         if message is None:
             return
-        msg = msg = "{}\t{}\t{}\t{}".format(
-                datetime.datetime.now().strftime("%Y-%d-%m %H:%M:%S.%f"),
+        msg = '{}\t{}\t{}\t{}'.format(
+                datetime.datetime.now().strftime('%Y-%d-%m %H:%M:%S.%f'),
                 level,
                 self.id,
                 message) if not no_format else str(message)
         if to_console:
             print(msg)
         if not self.no_log and self._file:
-            self._file.write(msg + "\n")
+            self._file.write(msg + '\n')
             self._file.flush()
 
     def initialize(self):
@@ -114,16 +114,17 @@ class BaseCase(object):
         """Generate log file."""
         if not os.path.exists(self.log_folder):
             os.mkdir(self.log_folder)
-        filename = "log_%s_%s.txt" % (self.id, uuid.uuid1())
+        filename = 'log_{}_{}.txt'.format(self.id, uuid.uuid1())
         self.log_path = os.path.join(self.log_folder, re.sub(r'[^\w_\\.-]', '', filename))
         self._file = open(self.log_path, 'w')
 
-    def print_tb(self, tb, sb):
-        """Print up to 'limit' stack trace entries from the traceback 'tb'.
+    @classmethod
+    def print_tb(cls, tb, sb):
+        """Print up to "limit" stack trace entries from the traceback "tb".
 
-        If 'limit' is omitted or None, all entries are printed.  If 'file'
+        If "limit" is omitted or None, all entries are printed.  If "file"
         is omitted or None, the output goes to sys.stderr; otherwise
-        'file' should be an open file or file-like object with a write()
+        "file" should be an open file or file-like object with a write()
         method.
         """
         import linecache
@@ -134,13 +135,13 @@ class BaseCase(object):
         tb = tb.tb_next
         while tb is not None and (limit is None or n < limit):
             f = tb.tb_frame
-            lineno = tb.tb_lineno
+            line_number = tb.tb_lineno
             co = f.f_code
             filename = co.co_filename
             name = co.co_name
-            sb.append_line('  File "%s", line %d, in %s' % (filename, lineno, name))
+            sb.append_line('  File "{}", line {}, in {}'.format(filename, line_number, name))
             linecache.checkcache(filename)
-            line = linecache.getline(filename, lineno, f.f_globals)
+            line = linecache.getline(filename, line_number, f.f_globals)
             if line:
                 sb.append_line('    ' + line.strip())
             tb = tb.tb_next
@@ -159,7 +160,7 @@ class BaseCase(object):
         """Log exception"""
         exc_type, exc_value, exc_traceback = sys.exc_info()
         sb = stringbuilder.StringBuilder()
-        sb.append_line("Traceback (most recent call last): ")
+        sb.append_line('Traceback (most recent call last): ')
         self.print_tb(exc_traceback, sb)
         lines = traceback.format_exception_only(exc_type, exc_value)
         for line in lines:
@@ -194,11 +195,11 @@ class BaseCase(object):
                 self.dispose()
             except Exception:
                 pass
-            self.log("-" * 40)
+            self.log('-' * 40)
             if self.status:
-                self.log("Case is Pass.", True)
+                self.log('Case is Pass.', True)
             else:
-                self.log("Case is Fail.", True, ERROR)
+                self.log('Case is Fail.', True, ERROR)
             if self._file is not None and (not self._file.closed):
                 self._file.close()
             if self.on_finished:

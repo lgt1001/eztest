@@ -6,7 +6,7 @@ import re
 import sys
 
 
-def date2str(date_time, date_format="%Y-%m-%d %H:%M:%S.%f", only_millisecond=False):
+def date2str(date_time, date_format='%Y-%m-%d %H:%M:%S.%f', only_millisecond=False):
     """Convert datetime to string.
 
     :param datetime.datetime date_time : datetime.
@@ -15,7 +15,7 @@ def date2str(date_time, date_format="%Y-%m-%d %H:%M:%S.%f", only_millisecond=Fal
     :return str: datetime string.
     """
     if date_time is None:
-        return ""
+        return ''
     if isinstance(date_time, datetime.datetime):
         dtstr = date_time.strftime(date_format)
         if only_millisecond:
@@ -28,7 +28,7 @@ def date2str(date_time, date_format="%Y-%m-%d %H:%M:%S.%f", only_millisecond=Fal
         return str(date_time)
 
 
-def str2date(date_time_str, date_format="%Y-%m-%d %H:%M:%S.%f"):
+def str2date(date_time_str, date_format='%Y-%m-%d %H:%M:%S.%f'):
     """Convert string to datetime.
 
     :param str date_time_str: datetime string.
@@ -38,7 +38,7 @@ def str2date(date_time_str, date_format="%Y-%m-%d %H:%M:%S.%f"):
     return datetime.datetime.strptime(date_time_str, date_format)
 
 
-def tostr(value, encoding="utf-8"):
+def tostr(value, encoding='utf-8'):
     """Convert value to string.
 
     :param value: input value.
@@ -46,7 +46,7 @@ def tostr(value, encoding="utf-8"):
     :return str: string.
     """
     if value is None:
-        return ""
+        return ''
     if isinstance(value, bytearray) or isinstance(value, bytes):
         return value.decode(encoding=encoding)
     elif not isinstance(value, str):
@@ -54,8 +54,8 @@ def tostr(value, encoding="utf-8"):
     return value
 
 
-def total_seconds(start_date, ends_date, date_format="%Y-%m-%d %H:%M:%S.%f"):
-    """Return total seconds between 2 date times.
+def total_seconds(start_date, ends_date, date_format='%Y-%m-%d %H:%M:%S.%f'):
+    """Return total seconds between two date times.
 
     :param datetime|str start_date: starts datetime.
     :param datetime|str ends_date: ends datetime.
@@ -63,7 +63,7 @@ def total_seconds(start_date, ends_date, date_format="%Y-%m-%d %H:%M:%S.%f"):
     :return float: total seconds.
     """
     if start_date is None or ends_date is None:
-        raise ValueError("both start_date and ends_date cannot be null")
+        raise ValueError('both start_date and ends_date cannot be null')
     if not isinstance(start_date, datetime.datetime):
         start_date = str2date(start_date, date_format)
     if not isinstance(ends_date, datetime.datetime):
@@ -90,7 +90,6 @@ def compare_str(string1, string2, ignore_case=False):
     elif string2 is None:
         return 1
     if ignore_case:
-        #Should ignore character case, convert two strings to upper case.
         if not isinstance(string1, str):
             string1 = str(string1)
         if not isinstance(string2, str):
@@ -159,22 +158,22 @@ def find_item_by_dict_keys(result_items, expect_item, keys):
                 else:
                     return result_index
             else:
-                raise AssertionError("result does not contain: %s" % expect_item)
+                raise AssertionError('result does not contain: %s' % expect_item)
     elif keys in expect_item:
         expect_item_key = expect_item[keys]
         for result_index, result_item in enumerate(result_items):
             if (keys in result_item) and result_item.get(keys) == expect_item_key:
                 return result_index
         else:
-            raise AssertionError("result does not contain[by %s=%s]: %s" % (keys, expect_item_key, expect_item))
+            raise AssertionError('result does not contain[by %s=%s]: %s' % (keys, expect_item_key, expect_item))
 
 
 def _verify_list(result_value, expect_value, key_in_list=None, count_in_list=True, ignore_key_list=None):
     assert isinstance(result_value, list)
     if count_in_list:
-        assert len(expect_value) == len(result_value), "result's length(%s) does not match expect's length(%s)" % (len(result_value), len(expect_value))
+        assert len(expect_value) == len(result_value), 'result\'s length(%s) does not match expect\'s length(%s)' % (len(result_value), len(expect_value))
     else:
-        assert len(expect_value) <= len(result_value), "result's length(%s) is less than expect's length(%s)" % (len(result_value), len(expect_value))
+        assert len(expect_value) <= len(result_value), 'result\'s length(%s) is less than expect\'s length(%s)' % (len(result_value), len(expect_value))
     for index, expect_item in enumerate(expect_value):
         if isinstance(expect_item, dict):
             result_index, key_in_list2 = None, None
@@ -192,7 +191,7 @@ def _verify_list(result_value, expect_value, key_in_list=None, count_in_list=Tru
                 result_matched_item = result_value[index]
                 verify_dictionary(result_matched_item, expect_item, key_in_list, count_in_list, ignore_key_list)
         else:
-            assert expect_item in result_value, "result does not contain: %s" % expect_item
+            assert expect_item in result_value, 'result does not contain: %s' % expect_item
 
 
 def verify_dictionary(result, expect, key_in_list=None, count_in_list=True, ignore_key_list=None):
@@ -201,12 +200,12 @@ def verify_dictionary(result, expect, key_in_list=None, count_in_list=True, igno
     :param dict|list result : Input dictionary which will be verified with the expected dictionary.
     :param dict|list expect: Expected dictionary
             it supports regular expression OBJECT as one of your expect value.
-            e.g.: dict(a=re.compile(r"hello.+world"))
-            wrong example: dict(a=r"hello.+world"), it will know regular expression as normal string.
+            e.g.: dict(a=re.compile(r'hello.+world'))
+            wrong example: dict(a=r'hello.+world'), it will know regular expression as normal string.
     :param key_in_list : if dictionary contains list, and list item is dictionary, it requires keys to
         fetch matched item from result to compare with. it is a list of these keys in order.
         keys can be str, a tuple/list of sub-key.
-    :param count_in_list : if value in dict is a list, and it will do excat count match if True, otherwise,
+    :param count_in_list : if value in dict is a list, and it will do exact count match if True, otherwise,
         it only will the count in result dict is not less than count in expect dict,
         and then search each element in result's value
     :param ignore_key_list : a list of keys should be ignored for verification.
@@ -222,26 +221,26 @@ def verify_dictionary(result, expect, key_in_list=None, count_in_list=True, igno
         for k in expect:
             if ignore_key_list and k in ignore_key_list:
                 continue
-            assert k in result, "result does not contains %s" % k
+            assert k in result, 'result does not contains %s' % k
             expect_value = expect.get(k)
             result_value = result.get(k)
             if expect_value is None:
-                assert result_value is None, "the value of %s is not None" % k
+                assert result_value is None, 'the value of %s is not None' % k
             else:
-                assert result_value is not None, "the value of %s is None" % k
+                assert result_value is not None, 'the value of %s is None' % k
 
                 if isinstance(expect_value, dict):
                     result_value = result_value[0] if isinstance(result_value, list) else result_value
-                    assert isinstance(result_value, dict), "the value of %s in result is not a dict" % k
+                    assert isinstance(result_value, dict), 'the value of %s in result is not a dict' % k
                     verify_dictionary(result_value, expect_value, key_in_list, count_in_list, ignore_key_list)
                 elif isinstance(expect_value, list):
                     _verify_list(result_value, expect_value, key_in_list, count_in_list, ignore_key_list)
                 elif isinstance(expect_value, Choice):
-                    assert result_value in expect_value, "%s=%s in result is not one of %s" % (k, result_value, expect_value)
-                elif "SRE_Pattern" in str(type(expect_value)):  # expect value is regular expression object
-                    assert expect_value.match(str(result_value)) is not None, "%s=%s in result does mot match expected regular expression: %s" % (k, result_value, expect_value.pattern)
+                    assert result_value in expect_value, '%s=%s in result is not one of %s' % (k, result_value, expect_value)
+                elif 'SRE_Pattern' in str(type(expect_value)):
+                    assert expect_value.match(str(result_value)) is not None, '%s=%s in result does mot match expected regular expression: %s' % (k, result_value, expect_value.pattern)
                 else:
-                    assert result_value == expect_value, "%s=%s in result does not match the expected %s=%s" % (k, result_value, k, expect_value)
+                    assert result_value == expect_value, '%s=%s in result does not match the expected %s=%s' % (k, result_value, k, expect_value)
 
 
 def to_boolean(value):
@@ -250,7 +249,7 @@ def to_boolean(value):
     :param value : input value.
     :return bool: bool value.
     """
-    return value is not None and (value == "1" or str(value).upper() == "TRUE")
+    return value is not None and (value == '1' or str(value).upper() == 'TRUE')
 
 
 def to_dict(input_data):
@@ -262,11 +261,8 @@ def to_dict(input_data):
     if not isinstance(input_data, dict):
         try:
             return json.loads(input_data)
-        except:
-            try:
-                return eval(input_data)
-            except:
-                raise ValueError("input data is not json format.")
+        except Exception:
+            raise ValueError('Input data is not json format.')
     return input_data
 
 

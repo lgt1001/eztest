@@ -8,34 +8,35 @@ e.g.:
 name=value
 
 usage:
-a = INI('/tmp/example.ini')     # Load INI data from file.
-a.get('people')                 # Get section 'people'.
-a.get('people', 'name')         # Get value of property 'name' under section 'people'.
-a.get('people', 'hello', 'world')   # Get value of property 'hello' under section 'people', or default value 'world' if section or property not found.
+a = INI("/tmp/example.ini")         # Load INI data from file.
+a.get("people")                     # Get section "people".
+a.get("people", "name")             # Get value of property "name" under section "people".
+a.get("people", "hello", "world")   # Get value of property "hello" under section "people", or default value "world" if section or property not found.
 
-a.contains('people')            # Whether INI file contains section 'people'.
-a.contains('people', 'name')    # Whether INI file contains property 'name' under section 'people'.
+a.contains("people")                # Whether INI file contains section "people".
+a.contains("people", "name")        # Whether INI file contains property "name" under section "people".
 
-a.set('new section')            # Define section 'new section'.
-a.set('new section', 'new property name', 'new value')  # Define property 'new property name' and its value under section 'new section'.
+a.set("new section")                # Define section "new section".
+a.set("new section", "new property name", "new value")  # Define property "new property name" and its value under section "new section".
 
-a.remove('new section', 'new property name')    # Remove property 'new property name' from section 'new section'.
-a.remove('new section')         # Remove section 'new section'.
+a.remove("new section", "new property name")    # Remove property "new property name" from section "new section".
+a.remove("new section")             # Remove section "new section".
 
-a.save()                        # Save to INI file.
+a.save()                            # Save to INI file.
+a.save("/tmp/new_file.ini")         # Save to /tmp/new_file.ini file.
 
 class People:
     def __init__(self):
         self.name = None
 
 p = People()
-a.get('people').convert2obj(p)      # Set p with same properties under section 'people' in INI file.
-a.get('people').contains('name')    # Whether section 'people' contains property 'name'.
-a.get('people').get('name')         # Get value of roperty 'name'.
-a.get('people').get('hello', 'world')   # Get value of roperty 'hello', or default value if not found.
-a.get('people').set('new property name', 'new value')   # Define property 'new property name' and its value
-a.get('people').clear()             # Clear all properties.
-
+a.get("people").to_object(p)            # Set p with same properties under section "people" in INI file.
+a.get("people").contains("name")        # Whether section "people" contains property "name".
+a.get("people").get("name")             # Get value of property "name".
+a.get("people").get("hello", "world")   # Get value of property "hello", or default value if not found.
+a.get("people").set("new property name", "new value")   # Define property "new property name" and its value
+a.get("people").clear()                 # Clear all properties.
+a.get("people").from_object(p)          # Set "people" section from p object.
 
 Common escape sequences in INI file.
 Sequence	Meaning
@@ -46,7 +47,19 @@ Sequence	Meaning
 \n	        Line feed
 \;	        Semicolon
 """
+import inspect
+import json
 import os
+import re
+import sys
+
+from .utility import to_boolean
+
+PROPERTY_TYPES = [bin, bool, bytearray, complex, dict, float, hex, int, list, oct, set, str, tuple]
+if sys.version_info <= (2, 7):
+    PROPERTY_TYPES.append(basestring, long, unicode)
+if sys.version_info >= (3, 0):
+    PROPERTY_TYPES.append(bytes)
 
 
 class INI:
@@ -57,48 +70,48 @@ class INI:
     name=value
     You also can view the standard of configuration from "http://en.wikipedia.org/wiki/INI_file"
     """
-    __slots__ = ['path', 'sections']
+    __slots__ = ['file_path', 'sections']
 
     def __init__(self, file_path=None):
         """Initialization. Load settings from configuration file.
 
         :param str file_path: configuration file's path.
         """
-        self.path = file_path
+        self.file_path = file_path
         self.sections = []
-        if file_path:
-            if not os.path.abspath(self.path):
-                self.path = os.path.join(os.getcwd(), self.path)
-            if os.path.exists(self.path):
+        if self.file_path:
+            if not os.path.abspath(self.file_path):
+                self.file_path = os.path.join(os.getcwd(), self.file_path)
+            if os.path.exists(self.file_path):
                 self._load()
 
     def _load(self):
-        """Load settings from congiruation file."""
-        with open(self.path, 'r') as f:
+        """Load settings from configuration file."""
+        with open(self.file_path, 'r') as f:
             try:
                 s = None
                 while True:
                     line = f.readline()
-                    if not line:  # It's end of lines.
+                    if not line:
                         break
-                    line = line.strip()     # clean " "/blank space from head and tail.
-                    if line == "":  # empty line, go to next line.
+                    line = line.strip()
+                    if line == '':
                         continue
-                    if line.startswith('[') and line.endswith("]"):  # It's section definition
-                        s = Section(line[1:-1])     # build a section.
-                        self.sections.append(s)     # append this section to self.Sections.
-                    elif line.startswith(";"):  # this is comment line.
+                    if line.startswith('[') and line.endswith(']'):
+                        s = Section(line[1:-1])
+                        self.sections.append(s)
+                    elif line.startswith(';'):
                         continue
-                    elif s is not None:  # it's property definition.
-                        i = line.find("=")
-                        if i > 0:  # it's valid property definition.
-                            k = line[0:i].strip()   # append this property to section.Properties.
+                    elif s is not None:
+                        i = line.find('=')
+                        if i > 0:
+                            k = line[0:i].strip()
                             if not k:
                                 continue
                             v = line[i + 1:].strip()
                             if v == '\\0':
                                 v = None
-                            elif v.find('\\') >= 0:    # replace "\\","\r","\t","\n" to their escape character.
+                            elif v.find('\\') >= 0:
                                 nv = ""
                                 token = None
                                 for c in v:
@@ -124,7 +137,7 @@ class INI:
                                 v = nv
                             s.set(k, v)
             except Exception as e:
-                raise Exception("Failed to load data: {}".format(str(e)))
+                raise Exception('Failed to load data: {}'.format(str(e)))
 
     def set(self, section_name, property_name=None, property_value=None):
         """Add/update section or property value.
@@ -134,7 +147,7 @@ class INI:
         :param property_value: property value in section.
         """
         if not section_name:
-            return ValueError("section_name cannot be null or empty")
+            return ValueError('section_name cannot be null or empty')
         for s in self.sections:
             if s.name == section_name:
                 s1 = s
@@ -172,7 +185,7 @@ class INI:
             Property value if property_name provided and found, otherwise default_value.
         """
         if not section_name:
-            return ValueError("section_name cannot be null or empty")
+            return ValueError('section_name cannot be null or empty')
         for s in self.sections:
             if s.name == section_name:
                 s1 = s
@@ -181,17 +194,36 @@ class INI:
             return
         return s1 if property_name is None else s1.get(property_name, default_value)
 
-    def save(self):
+    def save(self, file_path=None):
         """Save settings into configuration file."""
-        with open(self.path, 'w') as f:
+        file_path = file_path or self.file_path
+        if not file_path:
+            raise ValueError('Please provide file path.')
+        with open(file_path, 'w') as f:
             try:
                 for s in self.sections:
-                    f.write("[%s]%s" % (s.name, os.linesep))
+                    f.write('[{}]{}'.format(s.name, os.linesep))
                     for key, value in s.properties.items():
-                        f.write("%s=%s%s" % (key, value, os.linesep))
+                        if isinstance(value, dict):
+                            value = json.dumps(value)
+                        elif isinstance(value, list):
+                            value = ','.join([str(v) for v in value])
+                        elif isinstance(value, set):
+                            value = ','.join(list(value))
+                        elif isinstance(value, bytearray) or (sys.version_info >= (3, 0) and isinstance(value, bytes)):
+                            value = value.decode('utf-8')
+                        elif value is not None:
+                            value = str(value)
+
+                        if value is None:
+                            value = '\\0'
+                        else:
+                            value = value.replace('\\', '\\\\').replace('\r', '\\r').replace('\n', '\\n').replace('\t', '\\t')
+
+                        f.write('{}={}{}'.format(key, value, os.linesep))
                     f.write(os.linesep)
             except Exception as e:
-                raise Exception("Failed to write data into file: {}".format(str(e)))
+                raise Exception('Failed to write data into file: {}'.format(str(e)))
 
     def remove(self, section_name, property_name=None):
         """Remove section or property.
@@ -200,7 +232,7 @@ class INI:
         :param property_name : property name in section.
         """
         if not section_name:
-            return ValueError("section_name cannot be null or empty")
+            return ValueError('section_name cannot be null or empty')
         for s in self.sections:
             if s.name == section_name:
                 s1 = s
@@ -232,7 +264,7 @@ class Section:
         :param property_value: property value.
         """
         if not property_name:
-            raise ValueError("property_name can not be null or empty.")
+            raise ValueError('property_name can not be null or empty.')
         self.properties[property_name] = property_value
 
     def contains(self, property_name):
@@ -251,7 +283,7 @@ class Section:
         :param str property_name: property name.
         """
         if not property_name:
-            raise ValueError("property_name can not be null or empty.")
+            raise ValueError('property_name can not be null or empty.')
         if property_name in self.properties:
             del self.properties[property_name]
 
@@ -263,41 +295,82 @@ class Section:
         :return str: property value if found, otherwise returns default_value.
         """
         if not property_name:
-            raise ValueError("property_name can not be null or empty.")
+            raise ValueError('property_name can not be null or empty.')
         return self.properties.get(property_name, default_value)
 
     def clear(self):
         """Clear all properties."""
         self.properties = dict()
 
-    def convert2obj(self, obj):
+    def to_object(self, obj):
         """Copy values of property in section to property in the object.
 
         :param obj: the object which should be evaluated.
-        :return dict: a dictionary with keys donot exist in obj.
+        :return dict: a dictionary with keys don't exist in obj.
         """
         if obj is None:
-            raise ValueError("obj can not be null.")
+            raise ValueError('obj can not be None.')
         result = dict()
         for key, value in self.properties.items():
             if hasattr(obj, key):
                 attr = getattr(obj, key)
                 t = type(attr)
                 if t is bin:
-                    v = bin(value)
+                    v = bin(int(value, 2))
                 elif t is bool:
-                    v = bool(value)
+                    v = to_boolean(value)
+                elif t is bytearray:
+                    v = bytearray(value, encoding='utf-8')
+                elif t is complex:
+                    g = re.match(r'^(-?\d+)(([\+\-]\d+)[ij])?$', value)
+                    if g:
+                        v = complex(int(g.group(1)), int(g.group(3)))
+                    else:
+                        v = value
+                elif t is dict:
+                    v = json.loads(value)
                 elif t is float:
                     v = float(value)
                 elif t is hex:
-                    v = hex(value)
+                    v = hex(int(value, 16))
                 elif t is int:
                     v = int(value)
+                elif t is list:
+                    v = value.split(',')
+                elif t is set:
+                    v = set(value.split(','))
+                elif t is tuple:
+                    v = tuple(value.split(','))
                 elif t is oct:
-                    v = oct(value)
+                    v = oct(int(value, 8))
+                elif t is str:
+                    v = str(value)
                 else:
-                    v = value
+                    if sys.version_info <= (2, 7):
+                        if t is long:
+                            v = long(value)
+                        elif t is unicode:
+                            v = unicode(value, encoding='utf-8')
+                        else:
+                            v = value
+                    elif sys.version_info >= (3, 0) and t is bytes:
+                        v = bytes(value, encoding='utf-8')
+                    else:
+                        v = value
                 setattr(obj, key, v)
             else:
                 result[key] = value
         return obj
+
+    def from_object(self, obj):
+        """Copy values from object.
+
+        :param obj: object.
+        :return Section: self.
+        """
+        if obj is None:
+            raise ValueError('obj can not be None.')
+        for key, value in inspect.getmembers(obj):
+            if type(value) in PROPERTY_TYPES:
+                self.set(key, value)
+        return self
