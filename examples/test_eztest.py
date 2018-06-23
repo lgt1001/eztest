@@ -87,15 +87,25 @@ def target_is_folder_with_base_case():
     eztest.main(['', '-t', os.path.join(os.getcwd(), 'target_is_module')])
 
 
+def calc_reports():
+    """Calculate report files."""
+    eztest.main(['', '--calc', os.path.join(os.getcwd(), 'reports')])
+
+
 if __name__ == '__main__':
-    # simultaneous_test()
-    # continuous_test()
     # target_is_test_function()
+    # continuous_test()
+    # simultaneous_test()
+    # concurrency_test()
+    # frequent_test()
+    # ignore_cases()
     # target_is_unittest()
     # target_is_module()
     # target_is_module_not_base_case()
     # target_is_file()
     # target_is_folder_with_base_case()
+    # calc_reports()
     # run from command
     # os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
+    # os.system('eztest --calc "{}"'.format(os.path.join(os.getcwd(), 'reports')))
     pass

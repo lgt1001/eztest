@@ -5,6 +5,21 @@ import os
 import re
 import sys
 
+from io import StringIO
+
+
+DATE_MAPPING = {
+    r'^(\d+)-(\d+)-(\d+)': [1, 2, 3],                           # yyyy-m-d          1996-4-22
+    r'^(\d+)/(\d+)/(\d{4})': [3, 2, 1],                         # d/m/yyyy          22/4/1996
+    r'^(\d{4})/(\d+)/(\d+)': [1, 2, 3],                         # yyyy/m/d
+    r'^(\d{4}) ([a-zA-Z]+) (\d+)': [1, 2, 3],                   # yyyy mmmm d       1996 April 22
+    r'^(\d+) ([a-zA-Z]+) (\d{4})': [3, 2, 1],                   # d mmmm yyyy       22 April 1996
+    r'^([a-zA-Z]+, )?([a-zA-Z]+) (\d+),? (\d{4})': [4, 2, 3],   # mmmm d, yyyy      April 22, 1996  Thursday, April 10, 2008
+    r'^(\d+)\. ?(\d+|[a-zA-Z]+)\.? ?(\d{4})': [3, 2, 1],        # dd.mm.yyyy|d. month yyyy
+    r'^(\d{4})\.(\d+)\.(\d+)': [1, 2, 3],                       # yyyy.m.d
+}
+MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
 
 def date2str(date_time, date_format='%Y-%m-%d %H:%M:%S.%f', only_millisecond=False):
     """Convert datetime to string.
@@ -28,14 +43,65 @@ def date2str(date_time, date_format='%Y-%m-%d %H:%M:%S.%f', only_millisecond=Fal
         return str(date_time)
 
 
-def str2date(date_time_str, date_format='%Y-%m-%d %H:%M:%S.%f'):
+def str2date(date_time_str, date_format=None):
     """Convert string to datetime.
+    Format of date part:
+    yyyy-m-d            1996-4-22
+    d/m/yyyy            22/4/1996
+    yyyy/m/d            1996/4/22
+    yyyy mmmm d         1996 April 22   or  1996 Apr 22
+    d mmmm yyyy         22 April 1996   or  22 Apr 1996
+    mmmm d, yyyy        April 22, 1996 or Monday, April 22, 1996    or  Apr 22, 1996
+    dd.mm.yyyy          22.04.1996
+    d. month yyyy       4. April 1996   or  4. Apr 1996
+    yyyy.m.d            1996.4.22
 
+    Format of time part:
+    HH:MM
+    HH:MM:SS
+    HH:MM AM or HH:MM PM
+    HH:MM:SS.FFF
+    HH:MM:SS.FFFFFF
+    HH:MM:SSZ
+    HH:MM:SS UTC
+    HH:MM:SS+00:00
+    HH:MM:SS+0000
     :param str date_time_str: datetime string.
     :param str date_format: date format string.
     :return datetime.datetime: datetime.
     """
-    return datetime.datetime.strptime(date_time_str, date_format)
+    if date_format:
+        return datetime.datetime.strptime(date_time_str, date_format)
+
+    year, month, day = None, None, None
+    hour, minute, second, microsecond = 0, 0, 0, 0
+    for pattern, groups in DATE_MAPPING.items():
+        g = re.match(pattern, date_time_str)
+        if g:
+            year, month, day = map(g.group, groups)
+            break
+    if not year or not month or not day:
+        raise ValueError('Invalid date string, cannot convert to datetime.')
+    if not month.isdigit():
+        month = next(index+1 for index, m in enumerate(MONTHS) if month.lower().startswith(m))
+    else:
+        month = int(month)
+    year, day = int(year), int(day)
+
+    g = re.search(r'(\d+):(\d+)(:(\d+)((\.|,)(\d+))?)?( (AM|PM))? ?([a-zA-Z]+|[+-]\d{4}|[+-]\d+:\d+)?$', date_time_str)
+    if g:
+        hour, minute, second, microsecond, am_pm = map(g.group, [1, 2, 4, 7, 9])
+        if am_pm and am_pm.upper() == 'PM':
+            hour = int(hour) + 12
+        else:
+            hour = int(hour)
+        minute, second = int(minute), 0 if second is None else int(second)
+        if microsecond:
+            microsecond = int(microsecond) * 1000 if len(microsecond) == 3 else int(microsecond)
+        else:
+            microsecond = 0
+
+    return datetime.datetime(year, month, day, hour, minute, second, microsecond)
 
 
 def tostr(value, encoding='utf-8'):
@@ -47,18 +113,18 @@ def tostr(value, encoding='utf-8'):
     """
     if value is None:
         return ''
-    if isinstance(value, bytearray) or isinstance(value, bytes):
+    if isinstance(value, bytearray) or (sys.version_info >= (3, 0) and isinstance(value, bytes)):
         return value.decode(encoding=encoding)
     elif not isinstance(value, str):
         return str(value)
     return value
 
 
-def total_seconds(start_date, ends_date, date_format='%Y-%m-%d %H:%M:%S.%f'):
+def total_seconds(start_date, ends_date, date_format=None):
     """Return total seconds between two date times.
 
-    :param datetime|str start_date: starts datetime.
-    :param datetime|str ends_date: ends datetime.
+    :param datetime.datetime|str start_date: starts datetime.
+    :param datetime.datetime|str ends_date: ends datetime.
     :param str date_format: date format string.
     :return float: total seconds.
     """
@@ -126,7 +192,7 @@ class Choice(object):
     __slots__ = ['choices']
 
     def __init__(self, *choices):
-        self.choices = choices
+        self.choices = choices if choices else ()
 
     def __contains__(self, item):
         return item in self.choices
@@ -246,10 +312,10 @@ def verify_dictionary(result, expect, key_in_list=None, count_in_list=True, igno
 def to_boolean(value):
     """Convert value to boolean, "1" or "true" is True, others are False.
 
-    :param value : input value.
+    :param value: input value.
     :return bool: bool value.
     """
-    return value is not None and (value == '1' or str(value).upper() == 'TRUE')
+    return value is not None and (value == 1 or value == '1' or str(value).upper() == 'TRUE')
 
 
 def to_dict(input_data):
@@ -299,3 +365,36 @@ def import_module(file_path):
         from importlib import machinery
         loader = machinery.SourceFileLoader(module, file_path)
         return loader.load_module()
+
+
+class SysStandardOutput(object):
+    """Capture sys.stdout."""
+    def __init__(self):
+        self.output = None
+        self._stdout = None
+        self._stringio = None
+
+    def __enter__(self):
+        self.output = None
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+
+    def __exit__(self, *args):
+        self.output = self._stringio.getvalue()
+        del self._stringio
+        sys.stdout = self._stdout
+
+    def __str__(self):
+        return self.output
+
+    def __len__(self):
+        return len(self.output)
+
+    def __contains__(self, item):
+        """Return key in self.
+
+        :param str item: item.
+        :return bool: True or False
+        """
+        return item in self.output

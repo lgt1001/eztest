@@ -60,8 +60,9 @@ def _add_to_group_summary(summary, case_id, start_time, time_taken=None, is_case
     """
     key = '{}_{}'.format(case_id, utility.date2str(start_time, '%Y%m%d%H%M%S'))
     if time_taken is None:
-        summary[key] = {ID: case_id,
-                        START_TIME: start_time}
+        if key not in summary:
+            summary[key] = {ID: case_id,
+                            START_TIME: start_time}
     elif key not in summary:
         summary[key] = {ID: case_id,
                         START_TIME: start_time,
@@ -103,6 +104,14 @@ def _add_to_case_summary(summary, case_id, time_taken, is_case_pass):
         summary[case_id][MAX_TIME] = max(summary[case_id][MAX_TIME], time_taken)
 
 
+def _get_start_time(summary, case_id):
+    for key, value in summary.items():
+        if key.startswith(case_id + '_'):
+            return value.get(START_TIME)
+    else:
+        return None
+
+
 def calc(file_paths, group_minutes=60):
     """Analyze report files and calculate failure rate, average of time taken.
 
@@ -134,7 +143,6 @@ def calc(file_paths, group_minutes=60):
                 if not line or not line.startswith('"Repeat Index","Id","Description","Status"'):
                     print('Not report file, ignore file: {}'.format(file_path))
                     continue
-
                 while True:
                     line = f.readline()
                     if not line:
@@ -151,7 +159,11 @@ def calc(file_paths, group_minutes=60):
                         _add_to_case_summary(case_summary, case_id, time_taken, is_pass)
 
                         if case_id not in start_times:
-                            start_times[case_id] = start_date.replace(second=0, microsecond=0)
+                            exited_start_time = _get_start_time(group_summary, case_id)
+                            if exited_start_time:
+                                start_times[case_id] = exited_start_time
+                            else:
+                                start_times[case_id] = start_date.replace(second=0, microsecond=0)
                         my_start_time = start_times[case_id]
 
                         if my_start_time + group_gap >= end_date:
