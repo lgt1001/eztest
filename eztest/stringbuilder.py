@@ -50,7 +50,7 @@ class StringBuilder(object):
             self.length += 1
         else:
             value = tostr(value)
-            self.append(value + '\n')
+            self.data.append(value + '\n')
             self.length += len(value) + 1
 
     def to_string(self, delimiter=None):
