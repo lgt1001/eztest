@@ -8,7 +8,7 @@ from setuptools import setup, find_packages
 setup(
     name="eztest",
     version="1.0.8",
-    description="eztest is a Python package and execution used for performance/load testing.",
+    description="eztest is a Python package and execution used for performance testing or load testing.",
     long_description=open('README.rst').read(),
     author='lgt',
     author_email='lgt.1001-@163.com',
