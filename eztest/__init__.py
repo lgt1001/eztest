@@ -13,7 +13,7 @@ import traceback
 
 from . import ini, mail, testcase, testmode, utility, calc_report
 
-__version__ = '1.0.9'
+__version__ = '1.0.10'
 module_name = 'eztest'
 version = '{} v{}'.format(module_name, __version__)
 __all__ = ['ini', 'stringbuilder', 'testcase', 'utility', 'calc_report']
