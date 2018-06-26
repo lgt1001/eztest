@@ -81,9 +81,12 @@ def str2date(date_time_str, date_format=None):
             year, month, day = map(g.group, groups)
             break
     if not year or not month or not day:
-        raise ValueError('Invalid date string, cannot convert to datetime.')
+        raise ValueError('Unable to convert your datetime string.')
     if not month.isdigit():
-        month = next(index+1 for index, m in enumerate(MONTHS) if month.lower().startswith(m))
+        try:
+            month = next(index+1 for index, m in enumerate(MONTHS) if month.lower().startswith(m))
+        except StopIteration:
+            raise ValueError('Unable to convert your datetime string.')
     else:
         month = int(month)
     year, day = int(year), int(day)
