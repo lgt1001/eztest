@@ -29,7 +29,7 @@ import datetime
 import os
 import re
 
-from eztest import utility
+from eztest import stringbuilder, utility
 
 try:
     from _collections import OrderedDict
@@ -49,7 +49,7 @@ TIME_PATTERN = re.compile(r'"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})","(\d{
 TOTAL_COUNT = 'total_count'
 
 
-def _add_to_group_summary(summary, case_id, start_time, time_taken=None, is_case_pass=None):
+def add_to_group_summary(summary, case_id, start_time, time_taken=None, is_case_pass=None):
     """Add to group summary.
 
     :param dict summary: group summary.
@@ -81,7 +81,7 @@ def _add_to_group_summary(summary, case_id, start_time, time_taken=None, is_case
         summary[key][MAX_TIME] = max(summary[key][MAX_TIME], time_taken)
 
 
-def _add_to_case_summary(summary, case_id, time_taken, is_case_pass):
+def add_to_case_summary(summary, case_id, time_taken, is_case_pass):
     """Add to case summary.
 
     :param dict summary: case summary.
@@ -104,12 +104,102 @@ def _add_to_case_summary(summary, case_id, time_taken, is_case_pass):
         summary[case_id][MAX_TIME] = max(summary[case_id][MAX_TIME], time_taken)
 
 
-def _get_start_time(summary, case_id):
+def get_start_time(summary, case_id):
+    """Get start datetime from group summary.
+
+    :param dict summary: group summary.
+    :param str case_id: case id.
+    :return datetime.datetime: start datetime.
+    """
     for key, value in summary.items():
         if key.startswith(case_id + '_'):
             return value.get(START_TIME)
     else:
         return None
+
+
+def analyze_case(case_id, is_pass, start_date, end_date, time_taken,
+                 case_summary, start_times, group_summary, group_gap):
+    """Add case result to summary.
+
+    :param str case_id: case id.
+    :param bool is_pass: is case passed.
+    :param datetime.datetime start_date: start datetime.
+    :param datetime.datetime end_date: end datetime.
+    :param float time_taken: time taken.
+    :param dict case_summary: case summary.
+    :param dict start_times: a dictionary keeps case id and start datetime mapping.
+    :param dict group_summary: group summary.
+    :param datetime.timedelta group_gap: group gap in seconds.
+    :return:
+    """
+    add_to_case_summary(case_summary, case_id, time_taken, is_pass)
+
+    if case_id not in start_times:
+        exited_start_time = get_start_time(group_summary, case_id)
+        if exited_start_time:
+            start_times[case_id] = exited_start_time
+        else:
+            start_times[case_id] = start_date.replace(second=0, microsecond=0)
+    my_start_time = start_times[case_id]
+
+    if my_start_time + group_gap >= end_date:
+        add_to_group_summary(group_summary, case_id, my_start_time, time_taken, is_pass)
+    else:
+        while True:
+            my_start_time += group_gap
+            start_times[case_id] = my_start_time
+            if my_start_time + group_gap < end_date:
+                add_to_group_summary(group_summary, case_id, my_start_time)
+            else:
+                break
+        add_to_group_summary(group_summary, case_id, my_start_time, time_taken, is_pass)
+
+
+def output_summary(case_summary, group_summary, group_gap):
+    """Format summary and output.
+
+    :param dict case_summary: case summary.
+    :param dict group_summary: group summary.
+    :param datetime.timedelta group_gap: group gap in seconds.
+    :return str: output string.
+    """
+    sb = stringbuilder.StringBuilder()
+    sb.append_line('Case Id,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken')
+    groups = []
+    for case_id, value in case_summary.items():
+        sb.append_line('{},{},{},{},{},{},{}'.format(
+            case_id,
+            value[FAIL_COUNT],
+            value[TOTAL_COUNT],
+            '{:.4f}%'.format(value[FAIL_COUNT] / (1 if value[TOTAL_COUNT] == 0 else value[TOTAL_COUNT]) * 100),
+            value[MIN_TIME],
+            value[MAX_TIME],
+            value[AVERAGE]
+        ))
+        index = 1
+        for key, group_value in group_summary.items():
+            if key.startswith(case_id):
+                groups.append('{},{},{},{},{},{},{},{},{},{}'.format(
+                    case_id,
+                    index,
+                    utility.date2str(group_value[START_TIME], '%Y-%m-%d %H:%M:%S'),
+                    utility.date2str(group_value[START_TIME] + group_gap, '%Y-%m-%d %H:%M:%S'),
+                    group_value.get(FAIL_COUNT, 0),
+                    group_value.get(TOTAL_COUNT, 0),
+                    '{:.4f}%'.format(group_value[FAIL_COUNT] / (1 if group_value[TOTAL_COUNT] == 0 else group_value[TOTAL_COUNT]) * 100
+                                     if FAIL_COUNT in group_value else 0),
+                    group_value.get(MIN_TIME, ""),
+                    group_value.get(MAX_TIME, ""),
+                    group_value.get(AVERAGE, "")
+                ))
+                index += 1
+
+    sb.append_line()
+    sb.append_line('Case Id,Group Index,Start Time,End Time,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken')
+    for group in groups:
+        sb.append_line(group)
+    return str(sb)
 
 
 def calc(file_paths, group_minutes=60):
@@ -156,64 +246,13 @@ def calc(file_paths, group_minutes=60):
                     if time_match:
                         start_date, end_date = utility.str2date(time_match.group(1)), utility.str2date(time_match.group(2))
                         time_taken = float(time_match.group(3))
-                        _add_to_case_summary(case_summary, case_id, time_taken, is_pass)
 
-                        if case_id not in start_times:
-                            exited_start_time = _get_start_time(group_summary, case_id)
-                            if exited_start_time:
-                                start_times[case_id] = exited_start_time
-                            else:
-                                start_times[case_id] = start_date.replace(second=0, microsecond=0)
-                        my_start_time = start_times[case_id]
-
-                        if my_start_time + group_gap >= end_date:
-                            _add_to_group_summary(group_summary, case_id, my_start_time, time_taken, is_pass)
-                        else:
-                            while True:
-                                my_start_time += group_gap
-                                start_times[case_id] = my_start_time
-                                if my_start_time + group_gap < end_date:
-                                    _add_to_group_summary(group_summary, case_id, my_start_time)
-                                else:
-                                    break
-                            _add_to_group_summary(group_summary, case_id, my_start_time, time_taken, is_pass)
+                        analyze_case(case_id, is_pass, start_date, end_date, time_taken,
+                                     case_summary, start_times, group_summary, group_gap)
         except Exception:
             print('Not report file, ignore file: {}'.format(file_path))
 
     if not group_summary:
         print('No report result found.')
     else:
-        print(os.linesep)
-        print('Case Id,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken')
-        groups = []
-        for case_id, value in case_summary.items():
-            print('{},{},{},{},{},{},{}'.format(
-                case_id,
-                value[FAIL_COUNT],
-                value[TOTAL_COUNT],
-                '{:.4f}%'.format(value[FAIL_COUNT]/(1 if value[TOTAL_COUNT] == 0 else value[TOTAL_COUNT]) * 100),
-                value[MIN_TIME],
-                value[MAX_TIME],
-                value[AVERAGE]
-            ))
-            index = 1
-            for key, group_value in group_summary.items():
-                if key.startswith(case_id):
-                    groups.append('{},{},{},{},{},{},{},{},{},{}'.format(
-                        case_id,
-                        index,
-                        utility.date2str(group_value[START_TIME], '%Y-%m-%d %H:%M:%S'),
-                        utility.date2str(group_value[START_TIME] + group_gap, '%Y-%m-%d %H:%M:%S'),
-                        group_value.get(FAIL_COUNT, 0),
-                        group_value.get(TOTAL_COUNT, 0),
-                        '{:.4f}%'.format(group_value[FAIL_COUNT] / (1 if group_value[TOTAL_COUNT] == 0 else group_value[TOTAL_COUNT]) * 100
-                                         if FAIL_COUNT in group_value else 0),
-                        group_value.get(MIN_TIME, ""),
-                        group_value.get(MAX_TIME, ""),
-                        group_value.get(AVERAGE, "")
-                    ))
-                    index += 1
-        print(os.linesep)
-        print('Case Id,Group Index,Start Time,End Time,Fail Count,Total Count,Failure Rate,Minimum Time Taken,Maximum Time Taken,Average Time Taken')
-        for group in groups:
-            print(group)
+        print(output_summary(case_summary, group_summary, group_gap))
