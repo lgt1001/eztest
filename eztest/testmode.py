@@ -80,15 +80,18 @@ class NormalTest(object):
             print('-' * 80)
             print('Sending email...')
             dtnow = datetime.datetime.now()
-            report_fname = os.path.basename(self._report_path)
-            report_zipname = '{}_{}.zip'.format(os.path.splitext(report_fname)[0], dtnow.strftime('%Y%m%d%H%M%S'))
+            subject = '{}. {}'.format(self.mail.subject, dtnow.strftime('%Y-%m-%d %H:%M:%S'))
             is_file_compressed = False
             try:
-                with zipfile.ZipFile(report_zipname, 'w') as my_zip:
-                    my_zip.write(self._report_path, report_fname)
-                is_file_compressed = True
-                self.mail.send(subject='{}. {}'.format(self.mail.subject, dtnow.strftime('%Y-%m-%d %H:%M:%S')),
-                               attachments=report_zipname)
+                if self._report_path:
+                    report_fname = os.path.basename(self._report_path)
+                    report_zipname = '{}_{}.zip'.format(os.path.splitext(report_fname)[0], dtnow.strftime('%Y%m%d%H%M%S'))
+                    with zipfile.ZipFile(report_zipname, 'w') as my_zip:
+                        my_zip.write(self._report_path, report_fname)
+                    is_file_compressed = True
+                    self.mail.send(subject=subject, attachments=report_zipname)
+                else:
+                    self.mail.send(subject=subject)
             except Exception:
                 traceback.print_exc()
             finally:
@@ -106,27 +109,28 @@ class NormalTest(object):
         """Process after case is finished: log output from case to report file.
 
         :param BaseCase case: case."""
-        msg = ''
-        for message in case.output_messages:
-            msg += (message.replace('"', '""') if message else '') + '\n'
-        tt = case.get_time_taken()
-        report_msg = '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % (
-            case.repeat_index, case.id,
-            case.description.replace('"', '""') if case.description else '',
-            'Pass' if case.status else 'Fail',
-            case.expected.replace('"', '""') if case.expected else '',
-            case.received.replace('"', '""') if case.received else '',
-            msg, utility.date2str(case.start_datetime), utility.date2str(case.end_datetime),
-            tt if tt is not None else '',
-            case.log_path if case.log_path else '')
-        if case.additional_messages:
-            for message in case.additional_messages:
-                report_msg += ',"%s"' % (str(message).replace('"', '""') if message is not None else '')
-        report_msg += '\n'
-        with self._mutex:
-            if self._f:
-                self._f.write(report_msg)
-                self._f.flush()
+        if self._report_path:
+            msg = ''
+            for message in case.output_messages:
+                msg += (message.replace('"', '""') if message else '') + '\n'
+            tt = case.get_time_taken()
+            report_msg = '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % (
+                case.repeat_index, case.id,
+                case.description.replace('"', '""') if case.description else '',
+                'Pass' if case.status else 'Fail',
+                case.expected.replace('"', '""') if case.expected else '',
+                case.received.replace('"', '""') if case.received else '',
+                msg, utility.date2str(case.start_datetime), utility.date2str(case.end_datetime),
+                tt if tt is not None else '',
+                case.log_path if case.log_path else '')
+            if case.additional_messages:
+                for message in case.additional_messages:
+                    report_msg += ',"%s"' % (str(message).replace('"', '""') if message is not None else '')
+            report_msg += '\n'
+            with self._mutex:
+                if self._f:
+                    self._f.write(report_msg)
+                    self._f.flush()
 
     def run_cases(self, cases):
         """Run cases in sequence.
@@ -169,6 +173,9 @@ class NormalTest(object):
 
     def reset(self):
         """Reset: cancel existed testing, clean captured data."""
+        self._stop_test_timer = None
+        self._f = None
+        self._report_path = None
         self.is_cancelled = False
         self.round_finished = 0
         self.round_started = 0
