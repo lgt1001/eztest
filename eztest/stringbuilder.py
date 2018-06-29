@@ -40,7 +40,7 @@ class StringBuilder(object):
             self.data.append(value)
             self.length += len(value)
             
-    def append_line(self, value):
+    def append_line(self, value=None):
         """Append a string with "\n".
 
         :param str value: value to be appended, will convert to string
