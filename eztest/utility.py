@@ -70,6 +70,9 @@ def str2date(date_time_str, date_format=None):
     :param str date_format: date format string.
     :return datetime.datetime: datetime.
     """
+    if not date_time_str:
+        return None
+
     if date_format:
         return datetime.datetime.strptime(date_time_str, date_format)
 
