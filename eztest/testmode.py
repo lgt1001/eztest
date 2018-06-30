@@ -31,9 +31,15 @@ import threading
 import time
 import traceback
 import zipfile
+import socket
 
 from . import utility
 from .testcase import BaseCase
+
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 
 NORMAL = 0
 CONTINUOUS = 1
@@ -48,16 +54,13 @@ class NormalTest(object):
 
     All cases should inherit from testcase.BaseCase.
     """
-    __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
-                 'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'round_finished', 'round_started']
-
     def __init__(self):
         self.cases = []
         self.setup = None
         self.teardown = None
         self.no_report = False
         self.report_folder = 'reports'
+        self.report_server = None   # a tuple(host, port)
         self.mail = None
         self.additional_report_header = []
         self.test_mode = NORMAL
@@ -66,16 +69,23 @@ class NormalTest(object):
 
         self._mutex = threading.Lock()
         self._stop_test_timer = None
-        self._f = None
-        self._report_path = None
+        self._file = None
         self.is_cancelled = False
         self.round_finished = 0
         self.round_started = 0
+        self._socket = None
 
     def process_finished(self):
         """Process after testing is finished: close report file, send mail, invoke teardown function."""
-        if self._f is not None and (not self._f.closed):
-            self._f.close()
+        report_file = None
+        if self._file:
+            report_file = self._file.name
+            self._file.close()
+            self._file = None
+        elif self._socket:
+            self._socket.close()
+            self._socket = None
+
         if self.mail is not None:
             print('-' * 80)
             print('Sending email...')
@@ -83,11 +93,11 @@ class NormalTest(object):
             subject = '{}. {}'.format(self.mail.subject, dtnow.strftime('%Y-%m-%d %H:%M:%S'))
             is_file_compressed = False
             try:
-                if self._report_path:
-                    report_fname = os.path.basename(self._report_path)
+                if report_file:
+                    report_fname = os.path.basename(report_file)
                     report_zipname = '{}_{}.zip'.format(os.path.splitext(report_fname)[0], dtnow.strftime('%Y%m%d%H%M%S'))
                     with zipfile.ZipFile(report_zipname, 'w') as my_zip:
-                        my_zip.write(self._report_path, report_fname)
+                        my_zip.write(report_file, report_fname)
                     is_file_compressed = True
                     self.mail.send(subject=subject, attachments=report_zipname)
                 else:
@@ -97,7 +107,7 @@ class NormalTest(object):
             finally:
                 if is_file_compressed:
                     try:
-                        os.remove(self._report_path)
+                        os.remove(report_file)
                     except:
                         pass
         print('-' * 80)
@@ -109,28 +119,45 @@ class NormalTest(object):
         """Process after case is finished: log output from case to report file.
 
         :param BaseCase case: case."""
-        if self._report_path:
-            msg = ''
-            for message in case.output_messages:
-                msg += (message.replace('"', '""') if message else '') + '\n'
-            tt = case.get_time_taken()
+        if self._file:
+            output_messages = '\n'.join(utility.csv_format(message) for message in case.output_messages)
             report_msg = '"%s","%s","%s","%s","%s","%s","%s","%s","%s","%s","%s"' % (
                 case.repeat_index, case.id,
-                case.description.replace('"', '""') if case.description else '',
+                utility.csv_format(case.description),
                 'Pass' if case.status else 'Fail',
-                case.expected.replace('"', '""') if case.expected else '',
-                case.received.replace('"', '""') if case.received else '',
-                msg, utility.date2str(case.start_datetime), utility.date2str(case.end_datetime),
-                tt if tt is not None else '',
+                utility.csv_format(case.expected),
+                utility.csv_format(case.received),
+                output_messages,
+                utility.date2str(case.start_datetime),
+                utility.date2str(case.end_datetime),
+                case.get_time_taken(),
                 case.log_path if case.log_path else '')
             if case.additional_messages:
                 for message in case.additional_messages:
-                    report_msg += ',"%s"' % (str(message).replace('"', '""') if message is not None else '')
+                    report_msg += ',"%s"' % (utility.csv_format(message))
             report_msg += '\n'
             with self._mutex:
-                if self._f:
-                    self._f.write(report_msg)
-                    self._f.flush()
+                if self._file:
+                    self._file.write(report_msg)
+                    self._file.flush()
+        elif self._socket:
+            try:
+                self._socket.sendto(pickle.dumps(
+                    dict(
+                        repeat_index=case.repeat_index,
+                        id=case.id,
+                        description=case.description,
+                        status=case.status,
+                        expected=case.expected,
+                        received=case.received,
+                        output_messages=case.output_messages,
+                        start_time=case.start_datetime,
+                        end_time=case.end_datetime,
+                        time_taken=case.get_time_taken()
+                    )
+                ), self.report_server)
+            except Exception:
+                pass
 
     def run_cases(self, cases):
         """Run cases in sequence.
@@ -174,8 +201,8 @@ class NormalTest(object):
     def reset(self):
         """Reset: cancel existed testing, clean captured data."""
         self._stop_test_timer = None
-        self._f = None
-        self._report_path = None
+        self._file = None
+        self._socket = None
         self.is_cancelled = False
         self.round_finished = 0
         self.round_started = 0
@@ -186,18 +213,21 @@ class NormalTest(object):
             self.reset()
             try:
                 if not self.no_report:
-                    if not os.path.exists(self.report_folder):
-                        os.mkdir(self.report_folder)
-                    self._report_path = os.path.join(
-                        self.report_folder, 'report_%s.csv' % datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'))
-                    f = open(self._report_path, 'w')
-                    f.write('"Repeat Index","Id","Description","Status","Expected","Received","Output",'
-                            '"Starts DateTime","Ends DateTime","E2E Taken","Log Path"')
-                    if self.additional_report_header:
-                        for h in self.additional_report_header:
-                            f.write(',%s' % h)
-                    f.write('\n')
-                    self._f = f
+                    if self.report_server:
+                        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    else:
+                        if not os.path.exists(self.report_folder):
+                            os.mkdir(self.report_folder)
+                        report_file = os.path.join(
+                            self.report_folder, 'report_%s.csv' % datetime.datetime.now().strftime('%Y%m%d%H%M%S%f'))
+                        f = open(report_file, 'w')
+                        f.write('"Repeat Index","Id","Description","Status","Expected","Received","Output",'
+                                '"Starts DateTime","Ends DateTime","E2E Taken","Log Path"')
+                        if self.additional_report_header:
+                            for h in self.additional_report_header:
+                                f.write(',%s' % h)
+                        f.write('\n')
+                        self._file = f
                 if self.starts_time:
                     print('Waiting until %s...' % self.starts_time)
                     total_seconds = (self.starts_time - datetime.datetime.now()).total_seconds()
@@ -228,11 +258,6 @@ class ContinuousTest(NormalTest):
 
     All cases should inherit from testcase.BaseCase.
     """
-    __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
-                 'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'round_finished', 'round_started',
-                 'repeat_times', 'interval_seconds', 'current_round']
-
     def __init__(self):
         super(ContinuousTest, self).__init__()
         self.repeat_times = 1
@@ -276,12 +301,6 @@ class SimultaneousTest(ContinuousTest):
 
     All cases should inherit from testcase.BaseCase.
     """
-    __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
-                 'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'round_finished', 'round_started',
-                 'repeat_times', 'interval_seconds', 'current_round',
-                 'thread_count', '_repeat_capture_timer', 'is_repeat_started']
-
     def __init__(self):
         super(SimultaneousTest, self).__init__()
         self.thread_count = 1
@@ -347,11 +366,6 @@ class ConcurrencyTest(NormalTest):
 
     All cases should inherit from testcase.BaseCase.
     """
-    __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
-                 'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'round_finished', 'round_started',
-                 'thread_count', 'interval_seconds', '_mutex_count', '_count_capture_timer']
-
     def __init__(self):
         super(ConcurrencyTest, self).__init__()
         self.thread_count = 1
@@ -408,12 +422,6 @@ class FrequentTest(NormalTest):
 
     All cases should inherit from testcase.BaseCase.
     """
-    __slots__ = ['cases', 'setup', 'teardown', 'no_report', 'report_folder', 'mail', 'additional_report_header',
-                 'test_mode', 'starts_time', 'ends_time', '_mutex', '_stop_test_timer', '_f', '_report_path',
-                 'is_cancelled', 'round_finished', 'round_started', 'current_round',
-                 'interval_seconds', 'thread_count', '_repeat_capture_timer',
-                 'max_thread_count', 'thread_started', 'thread_finished']
-
     def __init__(self):
         super(FrequentTest, self).__init__()
         self.interval_seconds = 1
