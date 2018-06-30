@@ -309,7 +309,7 @@ def verify_dictionary(result, expect, key_in_list=None, count_in_list=True, igno
                     _verify_list(result_value, expect_value, key_in_list, count_in_list, ignore_key_list)
                 elif isinstance(expect_value, Choice):
                     assert result_value in expect_value, '%s=%s in result is not one of %s' % (k, result_value, expect_value)
-                elif 'SRE_Pattern' in str(type(expect_value)):
+                elif hasattr(expect_value, 'match'):
                     assert expect_value.match(str(result_value)) is not None, '%s=%s in result does mot match expected regular expression: %s' % (k, result_value, expect_value.pattern)
                 else:
                     assert result_value == expect_value, '%s=%s in result does not match the expected %s=%s' % (k, result_value, k, expect_value)
