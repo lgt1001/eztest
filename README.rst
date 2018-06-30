@@ -25,6 +25,9 @@ Control
 -------
   * Stop testing and report server.
 
+
+Usage
+-----
 ``eztest`` command::
 
     $ eztest -h
@@ -179,6 +182,8 @@ Control
       --group-minutes GROUP_MINUTES, -gm GROUP_MINUTES
                             Calculate by grouping case results with [group-minutes] minutes. Default is 60 minutes.
 
+Examples
+--------
 Test examples::
 
     # Normal testing
