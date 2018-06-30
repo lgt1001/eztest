@@ -374,7 +374,7 @@ def _parser_args(args=None):
 (b)1 or continuous: Run cases [repeat] times with [interval] seconds' sleeping. 
 (c)2 or simultaneous: Start [stress] threads and run cases in each thread, sleep [interval] seconds after all cases are finished, and then start testing again with [repeat] times. 
 (d)3 or concurrency: Start [stress] threads and each thread will continuously run cases with [interval] seconds' sleeping. 
-(e)4 or frequent: Start [stress] threads per [interval] seconds and do this [repeat] times. And only can have [limit] available threads running.''')
+(e)4 or frequent: Start [stress] threads per [interval] seconds. And only can have [limit] available threads running.''')
     test_group.add_argument('--stress', '-s', type=int, default=1,
                             help='Start [stress] threads in each round of testing. Default value is 1.')
     test_group.add_argument('--repeat', '-r', type=int, default=1,
