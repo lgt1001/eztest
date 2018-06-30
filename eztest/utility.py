@@ -404,3 +404,16 @@ class SysStandardOutput(object):
         :return bool: True or False
         """
         return item in self.output
+
+
+def csv_format(value, field_enclosed='"'):
+    """CSV field format.
+
+    :param str value: value.
+    :param str field_enclosed: file be enclosed with. default value is double quotes.
+    :return str: formatted field value.
+    """
+    if value is None:
+        return ''
+    else:
+        return str(value).replace(field_enclosed,  field_enclosed * 2)
