@@ -101,7 +101,7 @@ Usage
                             and then start testing again with [repeat] times.
                             (d)3 or concurrency: Start [stress] threads and each thread will continuously run
                             cases with [interval] seconds' sleeping.
-                            (e)4 or frequent: Start [stress] threads per [interval] seconds and do this [repeat] times.
+                            (e)4 or frequent: Start [stress] threads per [interval] seconds and do [repeat] times.
                             And only can have [limit] available threads running.
       --stress STRESS, -s STRESS
                             Start [stress] threads in each round of testing. Default value is 1.
