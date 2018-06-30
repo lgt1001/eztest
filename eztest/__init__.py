@@ -3,30 +3,24 @@
 Copyright (C) 2014 lgt, version 1.0 by lgt
 * https://github.com/lgt1001/eztest
 """
+import argparse
 import datetime
 import importlib
 import inspect
 import os
 import re
+import socket
 import sys
 import traceback
 
-from . import ini, mail, testcase, testmode, utility, calc_report
+import psutil
 
-__version__ = '1.0.10'
+from . import calc_report, ini, mail, report, testcase, testmode, utility
+
+__version__ = '2.0.0'
 module_name = 'eztest'
 version = '{} v{}'.format(module_name, __version__)
-__all__ = ['ini', 'stringbuilder', 'testcase', 'utility', 'calc_report']
-
-
-_version_info = sys.version_info
-_is_option_parser = False
-if _version_info < (2, 7) or (3, 0) <= _version_info < (3, 2):
-    import optparse
-
-    _is_option_parser = True
-else:
-    import argparse
+__all__ = ['calc_report', 'ini', 'report', 'stringbuilder', 'testcase', 'utility']
 
 
 class CaseType(object):
@@ -45,15 +39,6 @@ def _load_mail_section(section):
     mal = mail.Mail()
     section.to_object(mal)
     return mal
-
-
-def _to_datetime(date_string):
-    """Convert datetime string to datetime object.
-
-    :param str date_string: datetime string.
-    :return datetime.datetime: datetime object.
-    """
-    return datetime.datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
 
 
 def _is_matched(name, match_parts=None, ignore_match_parts=None):
@@ -192,217 +177,274 @@ def _load_cases(target, case_matches=None, ignore_match_parts=None, class_matche
     return results
 
 
-def _add_argument(group, long_option, short_option, required=False, **kwargs):
-    """Add argument.
-
-    :param group: argument group.
-    :param str long_option: long option.
-    :param str short_option: short option
-    :param bool required: is argument required.
-    :param kwargs: additional parameters.
-    """
-    if _is_option_parser and long_option != '--version':
-        if 'type' in kwargs and kwargs['type'] is _to_datetime:
-            del kwargs['type']
-        group.add_option(long_option, **kwargs)
+def get_report_server(report_server):
+    host_port = report_server.split(':')
+    if len(host_port) > 1:
+        host, port = host_port[0], int(host_port[1])
     else:
-        group.add_argument(long_option, short_option, required=required, **kwargs)
+        host, port = report_server, 8765
+    return host, port
 
 
-def _add_argument_group(parser, title, description=None):
-    """Add argument group.
+def dump(args):
+    """Dump data from report server."""
+    print('Dumping from report server: {} ...'.format(args.report_server))
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.sendto(b'dump', get_report_server(args.report_server))
+        data, _ = s.recvfrom(65535)
+        print(data.decode('utf-8'))
+    except Exception as e:
+        print('{}: {}'.format(type(e).__name__, str(e)))
+    finally:
+        s.close()
 
-    :param parser: argument parser.
-    :param str title: title
-    :param str description: description
-    :return: argument group.
-    """
-    if _is_option_parser:
-        group = optparse.OptionGroup(parser, title, description)
-        parser.add_option_group(group)
+
+def test(args):
+    """Start eztest for target cases, classes, modules."""
+    mode = testmode.NORMAL
+    args.mode = args.mode.upper()
+    if args.mode in ['1', 'CONTINUOUS']:
+        mode = testmode.CONTINUOUS
+    elif args.mode in ['2', 'SIMULTANEOUS']:
+        mode = testmode.SIMULTANEOUS
+    elif args.mode in ['3', 'CONCURRENCY']:
+        mode = testmode.CONCURRENCY
+    elif args.mode in ['4', 'FREQUENT']:
+        mode = testmode.FREQUENT
+    mal = None
+    if args.mail_config is not None:
+        _ini = ini.INI(args.mail_config)
+        if _ini.contains('SMTP'):
+            mal = _load_mail_section(_ini.get('SMTP'))
+    results = _load_cases(args.target, case_matches=args.cases, ignore_match_parts=args.not_cases,
+                          class_matches=args.classes, ignore_class_matches=args.not_classes)
+    for result in results:
+        cases = result.get('cases')
+        if not cases:
+            continue
+        if result.get('type') == CaseType.ClassCase:
+            for c in cases:
+                c.no_log = args.nolog
+                if args.report_folder:
+                    c.log_folder = args.report_folder
+            n_cases = cases
+        else:
+            from ._funccase import BuildCase
+            n_cases = []
+            for c in cases:
+                bc = BuildCase()
+                bc.id = c.__name__
+                bc.description = '{} in {}'.format(bc.id, result.get('module_name'))
+                bc.no_log = args.nolog
+                if args.report_folder:
+                    c.log_folder = args.report_folder
+                if 'setup_function' in result:
+                    bc.initialize = result.get('setup_function')
+                if 'teardown_function' in result:
+                    bc.dispose = result.get('teardown_function')
+                bc.run = c
+                n_cases.append(bc)
+        if mode == testmode.NORMAL:
+            nt = testmode.NormalTest()
+        elif mode == testmode.CONTINUOUS:
+            nt = testmode.ContinuousTest()
+            nt.repeat_times = args.repeat
+            nt.interval_seconds = args.interval
+        elif mode == testmode.SIMULTANEOUS:
+            nt = testmode.SimultaneousTest()
+            nt.thread_count = args.stress
+            nt.repeat_times = args.repeat
+            nt.interval_seconds = args.interval
+        elif mode == testmode.CONCURRENCY:
+            nt = testmode.ConcurrencyTest()
+            nt.thread_count = args.stress
+            nt.interval_seconds = args.interval
+        else:
+            nt = testmode.FrequentTest()
+            nt.thread_count = args.stress
+            nt.max_thread_count = args.limit
+            nt.interval_seconds = args.interval
+        nt.starts_time = args.starts
+        if args.ends:
+            nt.ends_time = args.ends
+        elif args.duration is not None and args.duration > 0:
+            dtnow = datetime.datetime.now()
+            nt.ends_time = (args.starts if args.starts and args.starts > dtnow else dtnow) + datetime.timedelta(minutes=args.duration)
+        nt.no_report = args.noreport
+        if args.report_folder:
+            nt.report_folder = args.report_folder
+        if args.report_server:
+            nt.report_server = get_report_server(args.report_server)
+        nt.mail = mal
+        if 'setup_module' in result:
+            nt.setup = result.get('setup_module')
+        if 'teardown_module' in result:
+            nt.teardown = result.get('teardown_module')
+        nt.cases = n_cases
+        nt.run()
+        if mode == testmode.NORMAL:
+            print('*' * 80)
+            print('Summary of %s:' % result.get('module_name'))
+            for c in n_cases:
+                print('%s\t%s' % (c.id, 'Pass' if c.status else 'Fail'))
+            print('*' * 80)
+
+
+def stop(args):
+    """Stop eztest and its report server."""
+    processes = []
+    for pr in psutil.process_iter():
+        try:
+            cmd = ' '.join(pr.cmdline())
+        except psutil.AccessDenied:
+            continue
+        if 'eztest' in cmd and 'stop' not in cmd:
+            processes.append(pr)
+
+    if processes:
+        print('Stopping eztest processes ...')
+        for pr in processes:
+            pr.kill()
     else:
-        group = parser.add_argument_group(title, description)
-    return group
+        print('No eztest process found.')
+
+
+def calc(args):
+    """Calculate by grouping case results with [group-minutes] minutes."""
+    calc_report.calc(args.path, group_minutes=args.group_minutes)
+
+
+def start_server(args):
+    """Start report server."""
+    print('Starting eztest report server ...')
+    report.start_udp_report_server(args.port, args.handler)
+
+
+def stop_server(args):
+    """Stop report server."""
+    for pr in psutil.process_iter():
+        try:
+            cmd = ' '.join(pr.cmdline())
+        except psutil.AccessDenied:
+            continue
+        if 'eztest' in cmd and 'server' in cmd and 'start' in cmd:
+            print('Stopping eztest report server ...')
+            pr.kill()
+            break
+    else:
+        print('No eztest report server process found.')
+
+
+def _to_datetime(date_string):
+    """Convert datetime string to datetime object.
+
+    :param str date_string: datetime string.
+    :return datetime.datetime: datetime object.
+    """
+    return datetime.datetime.strptime(date_string, '%Y-%m-%d %H:%M:%S')
 
 
 def _parser_args(args=None):
     """Parse arguments.
 
     :param list args: arguments.
-    :return tuple: (values : Values, args : [string])
     """
-    if _is_option_parser:
-        parser = optparse.OptionParser(prog=module_name, description=module_name, version=__version__)
-    else:
-        parser = argparse.ArgumentParser(prog=module_name, description=module_name)
+    parser = argparse.ArgumentParser(prog=module_name, description=module_name)
+    parser.add_argument('--version', '-v', action='version', version=__version__)
 
-    case_group = _add_argument_group(parser, 'Case Group', 'Define arguments of case related.')
-    _add_argument(case_group, long_option='--target', short_option='-t', dest='target',
-                  help='Folder or file path, or a module, a __init__.py file is required under that folder/module.')
-    _add_argument(case_group, long_option='--classes', short_option='-cl', dest='classes', nargs='+',
-                  help='Class names to be tested. It will be considered if target is file.')
-    _add_argument(case_group, long_option='--not-classes', short_option='-ncl', dest='not_classes', nargs='+',
-                  help='Class names to be ignored. It will be considered if target is file.')
-    _add_argument(case_group, long_option='--cases', short_option='-c', dest='cases', nargs='+',
-                  help='''Case names to be tested. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").''')
-    _add_argument(case_group, long_option='--not-cases', short_option='-nc', dest='not_cases', nargs='+',
-                  help='''Case names to be ignored. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").''')
+    sub_parsers = parser.add_subparsers()
+    test_parser = sub_parsers.add_parser('test', help='Start eztest for target cases, classes, modules.')
+    case_group = test_parser.add_argument_group('Case Group', 'Define arguments of case related.')
+    case_group.add_argument('--target', '-t', required=True,
+                            help='Folder or file path, or a module, a __init__.py file is required under that folder/module.')
+    case_group.add_argument('--classes', '-cl', nargs='+',
+                            help='Class names to be tested. It will be considered if target is file.')
+    case_group.add_argument('--not-classes', '-ncl', nargs='+',
+                            help='Class names to be ignored. It will be considered if target is file.')
+    case_group.add_argument('--cases', '-c', nargs='+',
+                            help='''Case names to be tested. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").''')
+    case_group.add_argument('--not-cases', '-nc', nargs='+',
+                            help='''Case names to be ignored. It can be whole case name or part of them(e.g.: "*a", "a*", "*a*").''')
 
-    test_group = _add_argument_group(parser, 'Test Mode Group', 'Define arguments of test mode related.')
-    _add_argument(test_group, long_option='--mode', short_option='-m', dest='mode', default='normal',
-                  choices=['0', '1', '2', '3', '4', 'normal', 'continuous', 'simultaneous', 'concurrency', 'frequent'],
-                  help='''(a)0 or normal: Run selected cases only once. 
+    test_group = test_parser.add_argument_group('Test Mode Group', 'Define arguments of test mode related.')
+    test_group.add_argument('--mode', '-m', default='normal',
+                            choices=['0', '1', '2', '3', '4', 'normal', 'continuous', 'simultaneous', 'concurrency', 'frequent'],
+                            help='''(a)0 or normal: Run selected cases only once. 
 (b)1 or continuous: Run cases [repeat] times with [interval] seconds' sleeping. 
 (c)2 or simultaneous: Start [stress] threads and run cases in each thread, sleep [interval] seconds after all cases are finished, and then start testing again with [repeat] times. 
 (d)3 or concurrency: Start [stress] threads and each thread will continuously run cases with [interval] seconds' sleeping. 
 (e)4 or frequent: Start [stress] threads per [interval] seconds and do this [repeat] times. And only can have [limit] available threads running.''')
-    _add_argument(test_group, long_option='--stress', short_option='-s', dest='stress', type=int, default=1,
-                  help='Start [stress] threads in each round of testing. Default value is 1.')
-    _add_argument(test_group, long_option='--repeat', short_option='-r', dest='repeat', type=int, default=1,
-                  help='Repeat [repeat] times of testing. Default value is 1')
-    _add_argument(test_group, long_option='--interval', short_option='-i', dest='interval', type=int, default=0,
-                  help='Sleep [interval] seconds after one round of testing. Default value is 0.')
-    _add_argument(test_group, long_option='--limit', short_option='-l', dest='limit', type=int, default=0,
-                  help='Only can have [limit] count of running threads. No limitation if this is less than or equals to [stress].')
-    _add_argument(test_group, long_option='--starts', short_option='-st', dest='starts', type=_to_datetime,
-                  help='''Testing will be started at [starts]. It is datetime string(e.g.: "2014-01-02 03:04:05").''')
-    _add_argument(test_group, long_option='--duration', short_option='-d', dest='duration', type=int,
-                  help='''Testing will continue with [duration] minutes. Will be ignored if 'ends' is provided.''')
-    _add_argument(test_group, long_option='--ends', short_option='-et', dest='ends', type=_to_datetime,
-                  help='''Testing will be stopped at [ends]. It is datetime string(e.g.: "2014-01-02 03:04:05").''')
+    test_group.add_argument('--stress', '-s', type=int, default=1,
+                            help='Start [stress] threads in each round of testing. Default value is 1.')
+    test_group.add_argument('--repeat', '-r', type=int, default=1,
+                            help='Repeat [repeat] times of testing. Default value is 1')
+    test_group.add_argument('--interval', '-i', type=int, default=0,
+                            help='Sleep [interval] seconds after one round of testing. Default value is 0.')
+    test_group.add_argument('--limit', '-l', type=int, default=0,
+                            help='Only can have [limit] count of running threads. No limitation if this is less than or equals to [stress].')
+    test_group.add_argument('--starts', '-st', type=_to_datetime,
+                            help='''Testing will be started at [starts]. It is datetime string(e.g.: "2014-01-02 03:04:05").''')
+    test_group.add_argument('--duration', '-d', type=int,
+                            help='''Testing will continue with [duration] minutes. Will be ignored if 'ends' is provided.''')
+    test_group.add_argument('--ends', '-et', type=_to_datetime,
+                            help='''Testing will be stopped at [ends]. It is datetime string(e.g.: "2014-01-02 03:04:05").''')
 
-    log_group = _add_argument_group(parser, 'Report/Log Group', 'Define arguments of report or log related.')
-    _add_argument(log_group, long_option='--mail-config', short_option='-mc', dest='mail_config',
-                  help='''Mail configuration file which contains mail server information etc. 
+    log_group = test_parser.add_argument_group('Report/Log Group', 'Define arguments of report or log related.')
+    log_group.add_argument('--report-folder', '-rf',
+                           help='Report and log files will be saved under [report-folder].')
+    log_group.add_argument('--report-server', '-rs',
+                           help='Report server. The format is "host_name:port_number" or "host_name" with default port number 8765.')
+    log_group.add_argument('--noreport', '-nr', action='store_true',
+                           help='No report file will be generated if [noreport] is clarified.')
+    log_group.add_argument('--nolog', '-nl', action='store_true',
+                           help='No log file will be generated if [nolog] is clarified.')
+    log_group.add_argument('--mail-config', '-mc',
+                           help='''Mail configuration file which contains mail server information etc. 
 It should be INI format file(http://en.wikipedia.org/wiki/INI_file). 
 Will send report by mail only if mail-config is provided and report file is generated. 
 Section is "SMTP" and properties can be "server", "from_mail", "to_mails", "cc_mails", "bcc_mails", "username", "password", "need_authentication" and "subject". 
 "server", "from_mail" and "to_mails" are mandatory. 
 "to_mails", "cc_mails" and "bcc_mails" can be multiple values separated by comma. 
 "need_authentication" is boolean, "username" and "password" are required if "need_authentication" is True.''')
-    _add_argument(log_group, long_option='--report-folder', short_option='-rf', dest='report_folder',
-                  help='Report and log files will be saved under [report-folder].')
-    _add_argument(log_group, long_option='--noreport', short_option='-nr', dest='no_report', action='store_true',
-                  help='No report file will be generated if [noreport] is clarified.')
-    _add_argument(log_group, long_option='--nolog', short_option='-nl', dest='no_log', action='store_true',
-                  help='No log file will be generated if [nolog] is clarified.')
 
-    calc_group = _add_argument_group(parser,
-                                     'Calculate Report Group',
-                                     'Calculate failure rate and average of time taken for report files generated by eztest.')
-    _add_argument(calc_group, long_option='--calc', short_option='-ca', dest='calc', nargs='+',
-                  help='Report folders or files to be calculated.')
-    _add_argument(calc_group, long_option='--group-minutes', short_option='-gm', dest='group_minutes', type=int, default=60,
-                  help='Calculate by grouping case results with [group-minutes] minutes. Default is 60 minutes.')
+    test_parser.set_defaults(func=test)
 
-    if args is None:
-        args = sys.argv
-    if _is_option_parser:
-        (options, args) = parser.parse_args(args)
-        if options.starts is not None:
-            options.starts = _to_datetime(options.starts)
-        if options.ends is not None:
-            options.ends = _to_datetime(options.ends)
-        return options
-    else:
-        parser.add_argument('--version', '-v', action='version', version=__version__)
-        return parser.parse_args(args[1:])
+    stoptest_parser = sub_parsers.add_parser('stop', help='Stop eztest and its report server.')
+    stoptest_parser.set_defaults(func=stop)
+
+    calc_parser = sub_parsers.add_parser('calc', help='Calculate report files generated by eztest.')
+    calc_parser.add_argument('--path', '-p', required=True, nargs='+',
+                             help='Report folders or files to be calculated.')
+    calc_parser.add_argument('--group-minutes', '-gm', type=int, default=60,
+                             help='Calculate by grouping case results with [group-minutes] minutes. Default is 60 minutes.')
+    calc_parser.set_defaults(func=calc)
+
+    report_parser = sub_parsers.add_parser('server', help='Start|Stop|Restart report server.')
+    port_argument = argparse.ArgumentParser(add_help=False)
+    port_argument.add_argument('--port', '-p', type=int, default=8765, help='Port number.')
+    port_argument.add_argument('--handler', '-hl',
+                               help='Custom handler. The format is: "file_path:handler_class_name", or "module_name:handler_class_name".')
+    report_sub = report_parser.add_subparsers()
+    start_parser = report_sub.add_parser('start', parents=[port_argument])
+    start_parser.set_defaults(func=start_server)
+    stop_parser = report_sub.add_parser('stop')
+    stop_parser.set_defaults(func=stop_server)
+
+    dump_parser = sub_parsers.add_parser('dump', help='Dump data from report server.')
+    dump_parser.add_argument('--report-server', '-rs', default='localhost:8765',
+                             help='Report server. The format is "host_name:port_number" or "host_name" with default port number 8765.')
+    dump_parser.set_defaults(func=dump)
+
+    args = args or sys.argv
+    all_args = parser.parse_args(args[1:])
+    all_args.func(all_args)
 
 
 def main(args=None):
     """Main function. Load arguments, cases from target, build test mode and start testing."""
     try:
-        args = _parser_args(args)
-        if args.target:
-            mode = testmode.NORMAL
-            args.mode = args.mode.upper()
-            if args.mode in ['1', 'CONTINUOUS']:
-                mode = testmode.CONTINUOUS
-            elif args.mode in ['2', 'SIMULTANEOUS']:
-                mode = testmode.SIMULTANEOUS
-            elif args.mode in ['3', 'CONCURRENCY']:
-                mode = testmode.CONCURRENCY
-            elif args.mode in ['4', 'FREQUENT']:
-                mode = testmode.FREQUENT
-            mal = None
-            if args.mail_config is not None:
-                _ini = ini.INI(args.mail_config)
-                if _ini.contains('SMTP'):
-                    mal = _load_mail_section(_ini.get('SMTP'))
-            results = _load_cases(args.target, case_matches=args.cases, ignore_match_parts=args.not_cases,
-                                  class_matches=args.classes, ignore_class_matches=args.not_classes)
-            for result in results:
-                cases = result.get('cases')
-                if not cases:
-                    continue
-                if result.get('type') == CaseType.ClassCase:
-                    for c in cases:
-                        c.no_log = args.no_log
-                        if args.report_folder:
-                            c.log_folder = args.report_folder
-                    n_cases = cases
-                else:
-                    from ._funccase import BuildCase
-                    n_cases = []
-                    for c in cases:
-                        bc = BuildCase()
-                        bc.id = c.__name__
-                        bc.description = '{} in {}'.format(bc.id, result.get('module_name'))
-                        bc.no_log = args.no_log
-                        if args.report_folder:
-                            c.log_folder = args.report_folder
-                        if 'setup_function' in result:
-                            bc.initialize = result.get('setup_function')
-                        if 'teardown_function' in result:
-                            bc.dispose = result.get('teardown_function')
-                        bc.run = c
-                        n_cases.append(bc)
-                if mode == testmode.NORMAL:
-                    nt = testmode.NormalTest()
-                elif mode == testmode.CONTINUOUS:
-                    nt = testmode.ContinuousTest()
-                    nt.repeat_times = args.repeat
-                    nt.interval_seconds = args.interval
-                elif mode == testmode.SIMULTANEOUS:
-                    nt = testmode.SimultaneousTest()
-                    nt.thread_count = args.stress
-                    nt.repeat_times = args.repeat
-                    nt.interval_seconds = args.interval
-                elif mode == testmode.CONCURRENCY:
-                    nt = testmode.ConcurrencyTest()
-                    nt.thread_count = args.stress
-                    nt.interval_seconds = args.interval
-                else:
-                    nt = testmode.FrequentTest()
-                    nt.thread_count = args.stress
-                    nt.max_thread_count = args.limit
-                    nt.interval_seconds = args.interval
-                nt.starts_time = args.starts
-                if args.ends:
-                    nt.ends_time = args.ends
-                elif args.duration is not None and args.duration > 0:
-                    dtnow = datetime.datetime.now()
-                    nt.ends_time = (args.starts if args.starts and args.starts > dtnow else dtnow) + datetime.timedelta(minutes=args.duration)
-                nt.no_report = args.no_report
-                if args.report_folder:
-                    nt.report_folder = args.report_folder
-                nt.mail = mal
-                if 'setup_module' in result:
-                    nt.setup = result.get('setup_module')
-                if 'teardown_module' in result:
-                    nt.teardown = result.get('teardown_module')
-                nt.cases = n_cases
-                nt.run()
-                if mode == testmode.NORMAL:
-                    print('*' * 80)
-                    print('Summary of %s:' % result.get('module_name'))
-                    for c in n_cases:
-                        print('%s\t%s' % (c.id, 'Pass' if c.status else 'Fail'))
-                    print('*' * 80)
-        elif args.calc:
-            calc_report.calc(args.calc, args.group_minutes)
-        else:
-            print('Error: --target is required for testing, or --calc is required for report calculation.')
+        _parser_args(args)
     except Exception:
         traceback.print_exc()
         sys.exit(2)
