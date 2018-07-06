@@ -30,17 +30,6 @@ class CaseType(object):
     UnittestCase = 2
 
 
-def _load_mail_section(section):
-    """Load mail section in INI file.
-
-    :param ini.Section section: section.
-    :return mail.Mail: mail object.
-    """
-    mal = mail.Mail()
-    section.to_object(mal)
-    return mal
-
-
 def _is_matched(name, match_parts=None, ignore_match_parts=None):
     """Is class/case matched.
 
@@ -158,12 +147,12 @@ def _load_cases(target, case_matches=None, ignore_match_parts=None, class_matche
     results = []
     if hasattr(t, 'CASES'):
         result = _load_class_cases(t, case_matches, ignore_match_parts)
-        result['module_name'] = target
+        result['module_name'] = t.__name__
         results.append(result)
     else:
         funcs = inspect.getmembers(t, predicate=inspect.isfunction)
         result = _load_test_cases(funcs, case_matches, ignore_match_parts, False)
-        result['module_name'] = target
+        result['module_name'] = t.__name__
         results.append(result)
         classes = inspect.getmembers(t, predicate=inspect.isclass)
         for classobj in classes:
@@ -172,12 +161,12 @@ def _load_cases(target, case_matches=None, ignore_match_parts=None, class_matche
                 obj = getattr(t, class_name)()
                 funcs = inspect.getmembers(obj, predicate=inspect.ismethod)
                 result = _load_test_cases(funcs, case_matches, ignore_match_parts, True)
-                result['module_name'] = '%s:%s' % (target, class_name)
+                result['module_name'] = '%s:%s' % (t.__name__, class_name)
                 results.append(result)
     return results
 
 
-def get_report_server(report_server):
+def _get_report_server(report_server):
     host_port = report_server.split(':')
     if len(host_port) > 1:
         host, port = host_port[0], int(host_port[1])
@@ -186,39 +175,71 @@ def get_report_server(report_server):
     return host, port
 
 
+def _get_test_mode(mode):
+    """Get test mode from command line.
+
+    :param str mode: mode.
+    :return: test mode.
+    """
+    test_mode = testmode.NORMAL
+    mode = mode.upper()
+    if mode in ['1', 'CONTINUOUS']:
+        test_mode = testmode.CONTINUOUS
+    elif mode in ['2', 'SIMULTANEOUS']:
+        test_mode = testmode.SIMULTANEOUS
+    elif mode in ['3', 'CONCURRENCY']:
+        test_mode = testmode.CONCURRENCY
+    elif mode in ['4', 'FREQUENT']:
+        test_mode = testmode.FREQUENT
+    return test_mode
+
+
+def _get_mail_configuration(mail_config):
+    """Get mail configuration.
+
+    :param str mail_config: mail configuration file path in command line.
+    :return mail.Mail: mail object.
+    """
+    if mail_config is not None:
+        _ini = ini.INI(mail_config)
+        if _ini.contains('SMTP'):
+            mal = mail.Mail()
+            _ini.get('SMTP').to_object(mal)
+            return mal
+
+
 def dump(args):
     """Dump data from report server."""
     print('Dumping from report server: {} ...'.format(args.report_server))
+    s = None
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.sendto(b'dump', get_report_server(args.report_server))
+        s.sendto(b'dump', _get_report_server(args.report_server))
         data, _ = s.recvfrom(65535)
         print(data.decode('utf-8'))
+    except ConnectionError:
+        print('ConnectionError: unable to connect to {}'.format(args.report_server))
     except Exception as e:
         print('{}: {}'.format(type(e).__name__, str(e)))
     finally:
-        s.close()
+        if s:
+            s.close()
+
+
+def calc(args):
+    """Calculate by grouping case results with [group-minutes] minutes."""
+    calc_report.calc(args.path, group_minutes=args.group_minutes)
 
 
 def test(args):
     """Start eztest for target cases, classes, modules."""
-    mode = testmode.NORMAL
-    args.mode = args.mode.upper()
-    if args.mode in ['1', 'CONTINUOUS']:
-        mode = testmode.CONTINUOUS
-    elif args.mode in ['2', 'SIMULTANEOUS']:
-        mode = testmode.SIMULTANEOUS
-    elif args.mode in ['3', 'CONCURRENCY']:
-        mode = testmode.CONCURRENCY
-    elif args.mode in ['4', 'FREQUENT']:
-        mode = testmode.FREQUENT
-    mal = None
-    if args.mail_config is not None:
-        _ini = ini.INI(args.mail_config)
-        if _ini.contains('SMTP'):
-            mal = _load_mail_section(_ini.get('SMTP'))
-    results = _load_cases(args.target, case_matches=args.cases, ignore_match_parts=args.not_cases,
-                          class_matches=args.classes, ignore_class_matches=args.not_classes)
+    mode = _get_test_mode(args.mode)
+    mal = _get_mail_configuration(args.mail_config)
+    results = _load_cases(args.target,
+                          case_matches=args.cases,
+                          ignore_match_parts=args.not_cases,
+                          class_matches=args.classes,
+                          ignore_class_matches=args.not_classes)
     for result in results:
         cases = result.get('cases')
         if not cases:
@@ -234,8 +255,8 @@ def test(args):
             n_cases = []
             for c in cases:
                 bc = BuildCase()
-                bc.id = c.__name__
-                bc.description = '{} in {}'.format(bc.id, result.get('module_name'))
+                bc.id = '{}:{}'.format(result.get('module_name'), c.__name__)
+                bc.description = bc.id
                 bc.no_log = args.nolog
                 if args.report_folder:
                     c.log_folder = args.report_folder
@@ -275,7 +296,7 @@ def test(args):
         if args.report_folder:
             nt.report_folder = args.report_folder
         if args.report_server:
-            nt.report_server = get_report_server(args.report_server)
+            nt.report_server = _get_report_server(args.report_server)
         nt.mail = mal
         if 'setup_module' in result:
             nt.setup = result.get('setup_module')
@@ -308,11 +329,6 @@ def stop(args):
             pr.kill()
     else:
         print('No eztest process found.')
-
-
-def calc(args):
-    """Calculate by grouping case results with [group-minutes] minutes."""
-    calc_report.calc(args.path, group_minutes=args.group_minutes)
 
 
 def start_server(args):
@@ -353,7 +369,7 @@ def _parser_args(args=None):
     parser = argparse.ArgumentParser(prog=module_name, description=module_name)
     parser.add_argument('--version', '-v', action='version', version=__version__)
 
-    sub_parsers = parser.add_subparsers()
+    sub_parsers = parser.add_subparsers(dest='eztest')
     test_parser = sub_parsers.add_parser('test', help='Start eztest for target cases, classes, modules.')
     case_group = test_parser.add_argument_group('Case Group', 'Define arguments of case related.')
     case_group.add_argument('--target', '-t', required=True,
@@ -425,7 +441,7 @@ Section is "SMTP" and properties can be "server", "from_mail", "to_mails", "cc_m
     port_argument.add_argument('--port', '-p', type=int, default=8765, help='Port number.')
     port_argument.add_argument('--handler', '-hl',
                                help='Custom handler. The format is: "file_path:handler_class_name", or "module_name:handler_class_name".')
-    report_sub = report_parser.add_subparsers()
+    report_sub = report_parser.add_subparsers(dest='server')
     start_parser = report_sub.add_parser('start', parents=[port_argument])
     start_parser.set_defaults(func=start_server)
     stop_parser = report_sub.add_parser('stop')
@@ -438,7 +454,14 @@ Section is "SMTP" and properties can be "server", "from_mail", "to_mails", "cc_m
 
     args = args or sys.argv
     all_args = parser.parse_args(args[1:])
-    all_args.func(all_args)
+    if all_args.eztest is None:
+        parser.print_help()
+        sys.exit(2)
+    elif all_args.eztest == 'server' and all_args.server is None:
+        report_parser.print_help()
+        sys.exit(2)
+    else:
+        all_args.func(all_args)
 
 
 def main(args=None):
