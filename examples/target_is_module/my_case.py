@@ -4,9 +4,9 @@ from eztest import testcase
 
 
 class MyCase(testcase.BaseCase):
-    def __init__(self, url):
+    def __init__(self):
         super(MyCase,self).__init__()
-        self.url = url
+        self.url = None
 
     def __deepcopy__(self, obj):
         new = super(MyCase, self).__deepcopy__(obj)

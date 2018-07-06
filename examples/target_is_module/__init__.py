@@ -11,7 +11,8 @@ def teardown_module():
 
 CASES = []
 for i in range(2):
-    c = MyCase('https://eztest/%d' % i)
+    c = MyCase()
+    c.url = 'https://eztest/%d' % i
     c.id = 'case %d' % i
     c.description = 'case desc %d' % i
     CASES.append(c)
