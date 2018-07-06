@@ -4,9 +4,9 @@ from eztest import testcase
 
 
 class MyCase(testcase.BaseCase):
-    def __init__(self, url):
+    def __init__(self):
         super(MyCase,self).__init__()
-        self.url = url
+        self.url = None
 
     def __deepcopy__(self, obj):
         new = super(MyCase, self).__deepcopy__(obj)
@@ -37,7 +37,8 @@ def teardown_module():
 
 CASES = []
 for i in range(2):
-    c = MyCase('https://eztest/%d' % i)
+    c = MyCase()
+    c.url = 'https://eztest/%d' % i
     c.id = 'case %d' % i
     c.description = 'case desc %d' % i
     CASES.append(c)
