@@ -32,7 +32,18 @@ class ReportBaseHandler(object):
         """Add case result to summary.
 
         :param dict case_result: case result.
-        :return:
+            {
+                "repeat_index": int(...),
+                "id": "case id",
+                "description": "case description",
+                "status": bool(...),  # True or False
+                "expected": "output expected",
+                "received": "output received",
+                "output_messages": [...],   # other output messages
+                "start_time": datetime.datetime(...),   # start datetime
+                "end_time": datetime.datetime(...), # end datetime
+                "time_taken": float(...)  # time taken
+            )
         """
         calc_report.analyze_case(
             case_id=case_result['id'],
@@ -48,6 +59,7 @@ class ReportBaseHandler(object):
 
     def dump(self):
         """Dump summary.
+
         :return str: summary.
         """
         if self.group_summary:
@@ -112,6 +124,18 @@ class ReportFileHandler(ReportBaseHandler):
         """Format case result.
 
         :param dict case_result: case result.
+            {
+                "repeat_index": int(...),
+                "id": "case id",
+                "description": "case description",
+                "status": bool(...),  # True or False
+                "expected": "output expected",
+                "received": "output received",
+                "output_messages": [...],   # other output messages
+                "start_time": datetime.datetime(...),   # start datetime
+                "end_time": datetime.datetime(...), # end datetime
+                "time_taken": float(...)  # time taken
+            )
         :return str: case output.
         """
         output_messages = '\n'.join(
