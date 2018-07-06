@@ -166,8 +166,8 @@ def start_udp_report_server(port=8765, handler_name=None):
             handler = ReportFileHandler()
         _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        _socket.bind(('localhost', port))
-        print('Serving UDP on localhost:%s...' % port)
+        _socket.bind(('', port))
+        print('Serving UDP on port:%s...' % port)
         while True:
             try:
                 data, client = _socket.recvfrom(65535)
