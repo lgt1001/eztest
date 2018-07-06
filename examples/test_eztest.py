@@ -6,13 +6,14 @@ import eztest
 def target_is_test_function():
     """Target is a file, and it contains "test_*" functions."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '--target', file_path])
+    eztest.main(['', 'test', '--target', file_path])
 
 
 def continuous_test():
     """Continuous testing, define repeat times."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '-m', 'continuous',
+    eztest.main(['', 'test',
+                 '-m', 'continuous',
                  '-t', file_path,
                  '-r', '2',
                  '--nolog'])
@@ -21,7 +22,8 @@ def continuous_test():
 def simultaneous_test():
     """Simultaneous testing, define stress count and repeat times."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '-m', 'simultaneous',
+    eztest.main(['', 'test',
+                 '-m', 'simultaneous',
                  '-t', file_path,
                  '-r', '2',
                  '-s', '2',
@@ -31,7 +33,8 @@ def simultaneous_test():
 def concurrency_test():
     """Concurrency testing, define stress count and ends datetime."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '-m', 'concurrency',
+    eztest.main(['', 'test',
+                 '-m', 'concurrency',
                  '-t', file_path,
                  '-s', '2',
                  '--duration', '1',
@@ -41,7 +44,8 @@ def concurrency_test():
 def frequent_test():
     """Frequent testing, define stress count and repeat times and internal in second."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '-m', 'frequent',
+    eztest.main(['', 'test',
+                 '-m', 'frequent',
                  '-t', file_path,
                  '-d', '1',
                  '-s', '2',
@@ -52,7 +56,8 @@ def frequent_test():
 def ignore_cases():
     """Define cases to be ignored."""
     file_path = os.path.join('target_is_test_func', 'test_case.py')
-    eztest.main(['', '-m', 'simultaneous',
+    eztest.main(['', 'test',
+                 '-m', 'simultaneous',
                  '-t', file_path,
                  '--not-cases', 'test_hello',
                  '-r', '2',
@@ -63,33 +68,33 @@ def ignore_cases():
 def target_is_unittest():
     """Target is a file, and it contains classes inherit from unittest.TestCase."""
     file_path = os.path.join('target_is_unittest', 'test_case.py')
-    eztest.main(['', '-t', file_path])
+    eztest.main(['', 'test', '-t', file_path])
 
 
 def target_is_module():
     """Target is a module, and has CASES variable defined."""
-    eztest.main(['', '-t', 'target_is_module'])
+    eztest.main(['', 'test', '-t', 'target_is_module'])
 
 
 def target_is_module_not_base_case():
     """Target is a module, and has not CASES variable defined."""
-    eztest.main(['', '-t', 'target_is_test_func.test_case'])
+    eztest.main(['', 'test', '-t', 'target_is_test_func.test_case'])
 
 
 def target_is_file():
     """Target is a file, and has CASES variable defined."""
     file_path = os.path.join('target_is_file', 'my_case.py')
-    eztest.main(['', '-t', file_path])
+    eztest.main(['', 'test', '-t', file_path])
 
 
 def target_is_folder_with_base_case():
     """Target is a module, and has CASES variable defined."""
-    eztest.main(['', '-t', os.path.join(os.getcwd(), 'target_is_module')])
+    eztest.main(['', 'test', '-t', os.path.join(os.getcwd(), 'target_is_module')])
 
 
 def calc_reports():
     """Calculate report files."""
-    eztest.main(['', '--calc', os.path.join(os.getcwd(), 'reports')])
+    eztest.main(['', 'calc', '--path', os.path.join(os.getcwd(), 'reports')])
 
 
 if __name__ == '__main__':
@@ -106,6 +111,6 @@ if __name__ == '__main__':
     # target_is_folder_with_base_case()
     # calc_reports()
     # run from command
-    # os.system('eztest -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
-    # os.system('eztest --calc "{}"'.format(os.path.join(os.getcwd(), 'reports')))
+    # os.system('eztest test -t "{}"'.format(os.path.join('target_is_test_func', 'test_case.py')))
+    # os.system('eztest calc --path "{}"'.format(os.path.join(os.getcwd(), 'reports')))
     pass
