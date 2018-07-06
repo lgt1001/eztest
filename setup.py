@@ -1,6 +1,6 @@
 """eztest - A python package to do performance/load test
 
-Copyright (C) 2014 lgt, version 1.0 by lgt
+Copyright (C) 2018 lgt, version 1.0 by lgt
 * https://github.com/lgt1001/eztest
 """
 from setuptools import setup
