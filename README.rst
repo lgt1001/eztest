@@ -190,28 +190,28 @@ Examples
 Test examples::
 
     # Normal testing
-    $ eztest --target examples/target_is_unittest/test_case.py
+    $ eztest test --target examples/target_is_unittest/test_case.py
 
     # Continuous testing and repeat 100 times
-    $ eztest --mode continuous --target examples/target_is_unittest/test_case.py --repeat 100 --nolog
+    $ eztest test --mode continuous --target examples/target_is_unittest/test_case.py --repeat 100 --nolog
 
     # Simultaneous testing, start 50 threads and repeat 100 times
-    $ eztest --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --repeat 100 --nolog
+    $ eztest test --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --repeat 100 --nolog
 
     # Concurrency testing, start 50 threads and run 1 hour
-    $ eztest --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
+    $ eztest test --mode simultaneous --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
 
     # Frequent testing, start 50 threads and run 1 hour
-    $ eztest --mode frequent --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
+    $ eztest test --mode frequent --target examples/target_is_unittest/test_case.py --stress 50 --duration 60 --nolog
 
     # Ignore cases
-    $ eztest --target examples/target_is_unittest/test_case.py --not-cases test_hello
+    $ eztest test --target examples/target_is_unittest/test_case.py --not-cases test_hello
 
     # Target is a module with CASES defined.
-    $ eztest --target examples.target_is_module
+    $ eztest test --target examples.target_is_module
 
     # Send and save case report to remote server.
-    $ eztest --target examples.target_is_module --report-server localhost:8765
+    $ eztest test --target examples.target_is_module --report-server localhost:8765
 
     # Stop testing or report server
     $ eztest stop
@@ -219,19 +219,19 @@ Test examples::
 Report related examples::
 
     # Start report server.
-    $ eztest start --port 8765
+    $ eztest server start --port 8765
 
     # Stop report server.
-    $ eztest stop
+    $ eztest server stop
 
     # Dump testing summary from remote report server
     $ eztest dump --report-server localhost:8765
 
     # Calculate failure rate and average of time taken for report files.
-    $ eztest --calc "/tmp/a.csv" "/tmp/b.csv" --group-minutes 30
+    $ eztest calc --path "/tmp/a.csv" "/tmp/b.csv" --group-minutes 30
 
     # Calculate failure rate and average of time taken for files under report folder.
-    $ eztest --calc "/tmp/reports" --group-minutes 30
+    $ eztest calc --path "/tmp/reports" --group-minutes 30
 
 
 Prerequisites
