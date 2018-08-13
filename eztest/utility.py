@@ -209,6 +209,9 @@ class Choice(object):
     def __repr__(self):
         return 'Choice(*%s)' % self.__str__()
 
+    def __eq__(self, other):
+        return self.__contains__(other)
+
 
 def find_item_by_dict_keys(result_items, expect_item, keys):
     """Find matched item from a list of dict.
@@ -378,18 +381,24 @@ class SysStandardOutput(object):
     def __init__(self):
         self.output = None
         self._stdout = None
-        self._stringio = None
+        self._stderr = None
+        self._stringio_out = None
+        self._stringio_err = None
 
     def __enter__(self):
         self.output = None
         self._stdout = sys.stdout
-        sys.stdout = self._stringio = StringIO()
+        self._stderr = sys.stderr
+        sys.stdout = self._stringio_out = StringIO()
+        sys.stderr = self._stringio_err = StringIO()
         return self
 
     def __exit__(self, *args):
-        self.output = self._stringio.getvalue()
-        del self._stringio
+        self.output = self._stringio_out.getvalue() or self._stringio_err.getvalue()
+        del self._stringio_out
+        del self._stringio_err
         sys.stdout = self._stdout
+        sys.stderr = self._stderr
 
     def __str__(self):
         return self.output
