@@ -44,18 +44,6 @@ Usage
       -h, --help            show this help message and exit
       --version, -v         show program's version number and exit
 
-    usage: eztest [-h] [--target TARGET] [--classes CLASSES [CLASSES ...]]
-                  [--not-classes NOT_CLASSES [NOT_CLASSES ...]]
-                  [--cases CASES [CASES ...]]
-                  [--not-cases NOT_CASES [NOT_CASES ...]]
-                  [--mode {0,1,2,3,4,normal,continuous,simultaneous,concurrency,frequent}]
-                  [--stress STRESS] [--repeat REPEAT] [--interval INTERVAL]
-                  [--limit LIMIT] [--starts STARTS] [--duration DURATION]
-                  [--ends ENDS] [--mail-config MAIL_CONFIG]
-                  [--report-folder REPORT_FOLDER] [--noreport] [--nolog]
-                  [--calc CALC [CALC ...]] [--group-minutes GROUP_MINUTES]
-                  [--version]
-
 ``eztest test`` command::
 
     $ eztest test -h
@@ -153,7 +141,7 @@ Usage
 
 
     $eztest server start -h
-    usage: eztest server start [-h] [--port PORT] [--handler HANDLER]
+    usage: eztest server start [-h] [--port PORT] [--handler HANDLER] [--group-minutes GROUP_MINUTES]
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -161,6 +149,8 @@ Usage
       --handler HANDLER, -hl HANDLER
                             Custom handler.
                             The format is: "file_path:handler_class_name", or "module_name:handler_class_name".
+      --group-minutes GROUP_MINUTES, -gm GROUP_MINUTES
+                            Calculate by grouping case results with [group-minutes] minutes. Default is 60 minutes.
 
 ``eztest dump`` command::
 
@@ -176,14 +166,14 @@ Usage
 ``eztest calc`` command::
 
     $eztest calc -h
-    usage: eztest calc [-h] --path PATH [PATH ...] [--group-minutes GROUP_MINUTES]
+    usage: eztest calc [-h] [--group-minutes GROUP_MINUTES] --path PATH [PATH ...]
 
     optional arguments:
       -h, --help            show this help message and exit
-      --path PATH [PATH ...], -p PATH [PATH ...]
-                            Report folders or files to be calculated.
       --group-minutes GROUP_MINUTES, -gm GROUP_MINUTES
                             Calculate by grouping case results with [group-minutes] minutes. Default is 60 minutes.
+      --path PATH [PATH ...], -p PATH [PATH ...]
+                            Report folders or files to be calculated.
 
 Examples
 --------
