@@ -32,15 +32,11 @@ def date2str(date_time, date_format='%Y-%m-%d %H:%M:%S.%f', only_millisecond=Fal
     if date_time is None:
         return ''
     if isinstance(date_time, datetime.datetime):
-        dtstr = date_time.strftime(date_format)
-        if only_millisecond:
-            return dtstr[:-3]
-        else:
-            return dtstr
-    elif isinstance(date_time, str):
-        return date_time
-    else:
-        return str(date_time)
+        date_time = date_time.strftime(date_format)
+    elif not isinstance(date_time, str):
+        date_time  = str(date_time)
+
+    return date_time[:-3] if only_millisecond and re.match(r'.+?\.\d{6}$', date_time) else date_time
 
 
 def str2date(date_time_str, date_format=None):

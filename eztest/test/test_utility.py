@@ -15,6 +15,11 @@ class TestUtility(unittest.TestCase):
         dtnow = datetime.datetime(2018, 6, 1)
         self.assertEqual(utility.date2str(dtnow), '2018-06-01 00:00:00.000000')
 
+        dtnow = datetime.datetime(2018, 6, 1)
+        self.assertEqual(utility.date2str(dtnow, only_millisecond=True), '2018-06-01 00:00:00.000')
+
+        self.assertEqual(utility.date2str('2018-06-01 12:13:14.123456', only_millisecond=True), '2018-06-01 12:13:14.123')
+
     def test_str2date(self):
         self.assertEqual(utility.str2date('2018-06-01 12:13:14.123456', '%Y-%m-%d %H:%M:%S.%f'), datetime.datetime(2018, 6, 1, 12, 13, 14, 123456))
         with self.assertRaises(ValueError):
