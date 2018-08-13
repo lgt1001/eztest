@@ -17,7 +17,7 @@ import psutil
 
 from . import calc_report, ini, mail, report, testcase, testmode, utility
 
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 module_name = 'eztest'
 version = '{} v{}'.format(module_name, __version__)
 __all__ = ['calc_report', 'ini', 'report', 'stringbuilder', 'testcase', 'utility']
