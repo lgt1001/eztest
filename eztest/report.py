@@ -166,7 +166,7 @@ class ReportFileHandler(ReportBaseHandler):
         super(ReportFileHandler, self).write(case_result)
 
 
-def start_udp_report_server(port=8765, handler_name=None):
+def start_udp_report_server(port=8765, handler_name=None, group_minutes=60):
     """Start report server.
 
     :param int port: report server port number.
@@ -188,6 +188,8 @@ def start_udp_report_server(port=8765, handler_name=None):
             handler = getattr(mymodule, hanname)()
         else:
             handler = ReportFileHandler()
+        if hasattr(handler, 'group_gap'):
+            setattr(handler, 'group_gap', datetime.timedelta(seconds=group_minutes * 60))
         _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         _socket.bind(('', port))
